@@ -121,7 +121,7 @@ typedef struct {
     ImagingAccess access;
 } ImagingObject;
 
-static PyTypeObject Imaging_Type;
+static PyTypeObject* Imaging_Type;
 
 #ifdef WITH_IMAGEDRAW
 
@@ -168,7 +168,7 @@ PyImagingNew(Imaging imOut) {
         return NULL;
     }
 
-    imagep = PyObject_New(ImagingObject, &Imaging_Type);
+    imagep = PyObject_New(ImagingObject, Imaging_Type);
     if (imagep == NULL) {
         ImagingDelete(imOut);
         return NULL;
@@ -197,7 +197,7 @@ _dealloc(ImagingObject *imagep) {
     PyObject_Del(imagep);
 }
 
-#define PyImaging_Check(op) (Py_TYPE(op) == &Imaging_Type)
+#define PyImaging_Check(op) (Py_TYPE(op) == Imaging_Type)
 
 Imaging
 PyImaging_AsImaging(PyObject *op) {
@@ -685,7 +685,7 @@ _alpha_composite(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep2;
 
     if (!PyArg_ParseTuple(
-            args, "O!O!", &Imaging_Type, &imagep1, &Imaging_Type, &imagep2)) {
+            args, "O!O!", Imaging_Type, &imagep1, Imaging_Type, &imagep2)) {
         return NULL;
     }
 
@@ -700,7 +700,7 @@ _blend(ImagingObject *self, PyObject *args) {
 
     alpha = 0.5;
     if (!PyArg_ParseTuple(
-            args, "O!O!|d", &Imaging_Type, &imagep1, &Imaging_Type, &imagep2, &alpha)) {
+            args, "O!O!|d", Imaging_Type, &imagep1, Imaging_Type, &imagep2, &alpha)) {
         return NULL;
     }
 
@@ -913,7 +913,7 @@ _convert2(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep1;
     ImagingObject *imagep2;
     if (!PyArg_ParseTuple(
-            args, "O!O!", &Imaging_Type, &imagep1, &Imaging_Type, &imagep2)) {
+            args, "O!O!", Imaging_Type, &imagep1, Imaging_Type, &imagep2)) {
         return NULL;
     }
 
@@ -1231,7 +1231,7 @@ _histogram(ImagingObject *self, PyObject *args) {
 
     PyObject *extremap = NULL;
     ImagingObject *maskp = NULL;
-    if (!PyArg_ParseTuple(args, "|OO!", &extremap, &Imaging_Type, &maskp)) {
+    if (!PyArg_ParseTuple(args, "|OO!", &extremap, Imaging_Type, &maskp)) {
         return NULL;
     }
 
@@ -1273,7 +1273,7 @@ _entropy(ImagingObject *self, PyObject *args) {
 
     PyObject *extremap = NULL;
     ImagingObject *maskp = NULL;
-    if (!PyArg_ParseTuple(args, "|OO!", &extremap, &Imaging_Type, &maskp)) {
+    if (!PyArg_ParseTuple(args, "|OO!", &extremap, Imaging_Type, &maskp)) {
         return NULL;
     }
 
@@ -1341,7 +1341,7 @@ _paste(ImagingObject *self, PyObject *args) {
     int x0, y0, x1, y1;
     ImagingObject *maskp = NULL;
     if (!PyArg_ParseTuple(
-            args, "O(iiii)|O!", &source, &x0, &y0, &x1, &y1, &Imaging_Type, &maskp)) {
+            args, "O(iiii)|O!", &source, &x0, &y0, &x1, &y1, Imaging_Type, &maskp)) {
         return NULL;
     }
 
@@ -1965,7 +1965,7 @@ _transform2(ImagingObject *self, PyObject *args) {
             &y0,
             &x1,
             &y1,
-            &Imaging_Type,
+            Imaging_Type,
             &imagep,
             &method,
             &data,
@@ -2267,7 +2267,7 @@ static PyObject *
 _putband(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
     int band;
-    if (!PyArg_ParseTuple(args, "O!i", &Imaging_Type, &imagep, &band)) {
+    if (!PyArg_ParseTuple(args, "O!i", Imaging_Type, &imagep, &band)) {
         return NULL;
     }
 
@@ -2292,13 +2292,13 @@ _merge(PyObject *self, PyObject *args) {
             args,
             "sO!|O!O!O!",
             &mode,
-            &Imaging_Type,
+            Imaging_Type,
             &band0,
-            &Imaging_Type,
+            Imaging_Type,
             &band1,
-            &Imaging_Type,
+            Imaging_Type,
             &band2,
-            &Imaging_Type,
+            Imaging_Type,
             &band3)) {
         return NULL;
     }
@@ -2359,7 +2359,7 @@ static PyObject *
 _chop_lighter(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2370,7 +2370,7 @@ static PyObject *
 _chop_darker(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2381,7 +2381,7 @@ static PyObject *
 _chop_difference(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2392,7 +2392,7 @@ static PyObject *
 _chop_multiply(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2403,7 +2403,7 @@ static PyObject *
 _chop_screen(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2419,7 +2419,7 @@ _chop_add(ImagingObject *self, PyObject *args) {
     scale = 1.0;
     offset = 0;
 
-    if (!PyArg_ParseTuple(args, "O!|fi", &Imaging_Type, &imagep, &scale, &offset)) {
+    if (!PyArg_ParseTuple(args, "O!|fi", Imaging_Type, &imagep, &scale, &offset)) {
         return NULL;
     }
 
@@ -2435,7 +2435,7 @@ _chop_subtract(ImagingObject *self, PyObject *args) {
     scale = 1.0;
     offset = 0;
 
-    if (!PyArg_ParseTuple(args, "O!|fi", &Imaging_Type, &imagep, &scale, &offset)) {
+    if (!PyArg_ParseTuple(args, "O!|fi", Imaging_Type, &imagep, &scale, &offset)) {
         return NULL;
     }
 
@@ -2446,7 +2446,7 @@ static PyObject *
 _chop_and(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2457,7 +2457,7 @@ static PyObject *
 _chop_or(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2468,7 +2468,7 @@ static PyObject *
 _chop_xor(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2479,7 +2479,7 @@ static PyObject *
 _chop_add_modulo(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2490,7 +2490,7 @@ static PyObject *
 _chop_subtract_modulo(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2501,7 +2501,7 @@ static PyObject *
 _chop_soft_light(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2512,7 +2512,7 @@ static PyObject *
 _chop_hard_light(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2523,7 +2523,7 @@ static PyObject *
 _chop_overlay(ImagingObject *self, PyObject *args) {
     ImagingObject *imagep;
 
-    if (!PyArg_ParseTuple(args, "O!", &Imaging_Type, &imagep)) {
+    if (!PyArg_ParseTuple(args, "O!", Imaging_Type, &imagep)) {
         return NULL;
     }
 
@@ -2545,7 +2545,7 @@ _font_new(PyObject *self_, PyObject *args) {
     unsigned char *glyphdata;
     Py_ssize_t glyphdata_length;
     if (!PyArg_ParseTuple(
-            args, "O!y#", &Imaging_Type, &imagep, &glyphdata, &glyphdata_length)) {
+            args, "O!y#", Imaging_Type, &imagep, &glyphdata, &glyphdata_length)) {
         return NULL;
     }
 
@@ -2743,7 +2743,7 @@ _draw_new(PyObject *self_, PyObject *args) {
 
     ImagingObject *imagep;
     int blend = 0;
-    if (!PyArg_ParseTuple(args, "O!|i", &Imaging_Type, &imagep, &blend)) {
+    if (!PyArg_ParseTuple(args, "O!|i", Imaging_Type, &imagep, &blend)) {
         return NULL;
     }
 
@@ -2840,7 +2840,7 @@ _draw_bitmap(ImagingDrawObject *self, PyObject *args) {
     PyObject *data;
     ImagingObject *bitmap;
     int ink;
-    if (!PyArg_ParseTuple(args, "OO!i", &data, &Imaging_Type, &bitmap, &ink)) {
+    if (!PyArg_ParseTuple(args, "OO!i", &data, Imaging_Type, &bitmap, &ink)) {
         return NULL;
     }
 
@@ -3615,49 +3615,22 @@ image_item(ImagingObject *self, Py_ssize_t i) {
     return getpixel(im, self->access, x, y);
 }
 
-static PySequenceMethods image_as_sequence = {
-    (lenfunc)image_length,      /*sq_length*/
-    (binaryfunc)NULL,           /*sq_concat*/
-    (ssizeargfunc)NULL,         /*sq_repeat*/
-    (ssizeargfunc)image_item,   /*sq_item*/
-    (ssizessizeargfunc)NULL,    /*sq_slice*/
-    (ssizeobjargproc)NULL,      /*sq_ass_item*/
-    (ssizessizeobjargproc)NULL, /*sq_ass_slice*/
-};
-
 /* type description */
 
-static PyTypeObject Imaging_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0) "ImagingCore", /*tp_name*/
-    sizeof(ImagingObject),                        /*tp_size*/
-    0,                                            /*tp_itemsize*/
-    /* methods */
-    (destructor)_dealloc, /*tp_dealloc*/
-    0,                    /*tp_print*/
-    0,                    /*tp_getattr*/
-    0,                    /*tp_setattr*/
-    0,                    /*tp_compare*/
-    0,                    /*tp_repr*/
-    0,                    /*tp_as_number */
-    &image_as_sequence,   /*tp_as_sequence */
-    0,                    /*tp_as_mapping */
-    0,                    /*tp_hash*/
-    0,                    /*tp_call*/
-    0,                    /*tp_str*/
-    0,                    /*tp_getattro*/
-    0,                    /*tp_setattro*/
-    0,                    /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,   /*tp_flags*/
-    0,                    /*tp_doc*/
-    0,                    /*tp_traverse*/
-    0,                    /*tp_clear*/
-    0,                    /*tp_richcompare*/
-    0,                    /*tp_weaklistoffset*/
-    0,                    /*tp_iter*/
-    0,                    /*tp_iternext*/
-    methods,              /*tp_methods*/
-    0,                    /*tp_members*/
-    getsetters,           /*tp_getset*/
+static PyType_Slot Imaging_Type_slots[] = {
+    {Py_tp_dealloc, (destructor)_dealloc},
+    {Py_sq_length, (lenfunc)image_length},
+    {Py_sq_item, (ssizeargfunc)image_item},
+    {Py_tp_methods, methods},
+    {Py_tp_getset, getsetters},
+    {0, NULL}
+};
+
+PyType_Spec Imaging_Type_spec = {
+    .name = "ImagingCore",
+    .basicsize = sizeof(ImagingObject),
+    .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE),
+    .slots = Imaging_Type_slots,
 };
 
 #ifdef WITH_IMAGEDRAW
@@ -4127,10 +4100,12 @@ setup_module(PyObject *m) {
     PyObject *d = PyModule_GetDict(m);
     const char *version = (char *)PILLOW_VERSION;
 
-    /* Ready object types */
-    if (PyType_Ready(&Imaging_Type) < 0) {
+    PyObject *imaging_type = PyType_FromSpec(&Imaging_Type_spec);
+    if (imaging_type == NULL) {
         return -1;
     }
+
+    Imaging_Type = (PyTypeObject*) imaging_type;
 
 #ifdef WITH_IMAGEDRAW
     if (PyType_Ready(&ImagingFont_Type) < 0) {
