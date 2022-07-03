@@ -12,7 +12,6 @@
  * 1996-04-08 fl   Added new/new_block/new_array factories
  * 1996-04-13 fl   Added decoders
  * 1996-05-04 fl   Added palette hack
- * 1996-05-12 fl   Compile cleanly as C++
  * 1996-05-19 fl   Added matrix conversions, gradient fills
  * 1996-05-27 fl   Added display_mode
  * 1996-07-22 fl   Added getbbox, offset
@@ -969,13 +968,11 @@ _convert_transparent(ImagingObject *self, PyObject *args) {
     return NULL;
 }
 
-static PyObject *
-_copy(ImagingObject *self, PyObject *args) {
-    if (!PyArg_ParseTuple(args, "")) {
-        return NULL;
-    }
-
-    return PyImagingNew(ImagingCopy(self->image));
+HPyDef_METH(Imaging_copy, "copy", Imaging_copy_impl, HPyFunc_NOARGS)
+static HPy Imaging_copy_impl(HPyContext *ctx, HPy self) {
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    Imaging im = PyImaging_AsImaging(py_self);
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingCopy(im)));
 }
 
 static PyObject *
@@ -1097,14 +1094,17 @@ _getpalette(ImagingObject *self, PyObject *args) {
     return palette;
 }
 
-static PyObject *
-_getpalettemode(ImagingObject *self) {
-    if (!self->image->palette) {
-        PyErr_SetString(PyExc_ValueError, no_palette);
-        return NULL;
+HPyDef_METH(Imaging_getpalettemode, "getpalettemode", Imaging_getpalettemode_impl, HPyFunc_NOARGS)
+static HPy Imaging_getpalettemode_impl(HPyContext *ctx, HPy self) {
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    Imaging image = PyImaging_AsImaging(py_self);
+
+    if (!image->palette) {
+        HPyErr_SetString(ctx, ctx->h_ValueError, no_palette);
+        return HPy_NULL;
     }
 
-    return PyUnicode_FromString(self->image->palette->mode);
+    return HPyUnicode_FromString(ctx, image->palette->mode);
 }
 
 static inline int
@@ -3457,7 +3457,6 @@ static struct PyMethodDef methods[] = {
     {"convert2", (PyCFunction)_convert2, METH_VARARGS},
     {"convert_matrix", (PyCFunction)_convert_matrix, METH_VARARGS},
     {"convert_transparent", (PyCFunction)_convert_transparent, METH_VARARGS},
-    {"copy", (PyCFunction)_copy, METH_VARARGS},
     {"crop", (PyCFunction)_crop, METH_VARARGS},
     {"expand", (PyCFunction)_expand_image, METH_VARARGS},
     {"filter", (PyCFunction)_filter, METH_VARARGS},
@@ -3497,7 +3496,6 @@ static struct PyMethodDef methods[] = {
     {"setmode", (PyCFunction)im_setmode, METH_VARARGS},
 
     {"getpalette", (PyCFunction)_getpalette, METH_VARARGS},
-    {"getpalettemode", (PyCFunction)_getpalettemode, METH_NOARGS},
     {"putpalette", (PyCFunction)_putpalette, METH_VARARGS},
     {"putpalettealpha", (PyCFunction)_putpalettealpha, METH_VARARGS},
     {"putpalettealphas", (PyCFunction)_putpalettealphas, METH_VARARGS},
@@ -3543,6 +3541,8 @@ static struct PyMethodDef methods[] = {
 
     {NULL, NULL} /* sentinel */
 };
+
+
 
 /* attributes */
 
@@ -3627,12 +3627,19 @@ static PyType_Slot Imaging_Type_slots[] = {
     {0, NULL}
 };
 
+static HPyDef *Imaging_type_defines[]={
+    &Imaging_copy,
+    &Imaging_getpalettemode,
+    NULL
+};
+
 HPyType_Spec Imaging_Type_spec = {
     .name = "ImagingCore",
     .basicsize = sizeof(ImagingObject),
     .flags = (HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_BASETYPE),
     .legacy_slots = Imaging_Type_slots,
     .legacy = true,
+    .defines = Imaging_type_defines,
 };
 
 #ifdef WITH_IMAGEDRAW
@@ -4098,7 +4105,9 @@ static PyMethodDef functions[] = {
 };
 
 static int
-setup_module(HPyContext *ctx, PyObject *m) {
+setup_module(HPyContext *ctx, HPy h_module) {
+
+    PyObject *m = HPy_AsPyObject(ctx, h_module);
     PyObject *d = PyModule_GetDict(m);
     const char *version = (char *)PILLOW_VERSION;
 
@@ -4108,6 +4117,7 @@ setup_module(HPyContext *ctx, PyObject *m) {
     }
 
     Imaging_Type = (PyTypeObject*) HPy_AsPyObject(ctx, h_array_type);
+
     HPy_Close(ctx, h_array_type);
 
 #ifdef WITH_IMAGEDRAW
@@ -4218,21 +4228,23 @@ setup_module(HPyContext *ctx, PyObject *m) {
 
 HPy_MODINIT(_imaging)
 static HPy init__imaging_impl(HPyContext *ctx) {
-    PyObject *m;
 
-    static PyModuleDef module_def = {
-        PyModuleDef_HEAD_INIT,
-        "_imaging", /* m_name */
-        NULL,       /* m_doc */
-        -1,         /* m_size */
-        functions,  /* m_methods */
+    static HPyModuleDef module_def = {
+        .name = "_imaging", /* m_name */
+        .doc = NULL,       /* m_doc */
+        .size = -1,         /* m_size */
+        .legacy_methods = functions,  /* m_methods */
     };
 
-    m = PyModule_Create(&module_def);
+    HPy m;
+    m = HPyModule_Create(ctx, &module_def);
+    if (HPy_IsNull(m)) {
+        return HPy_NULL;
+    }
 
     if (setup_module(ctx, m) < 0) {
         return HPy_NULL;
     }
 
-    return HPy_FromPyObject(ctx, m);
+    return m;
 }
