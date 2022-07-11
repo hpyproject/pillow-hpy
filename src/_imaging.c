@@ -1032,26 +1032,27 @@ _filter(ImagingObject *self, PyObject *args) {
 }
 
 #ifdef WITH_UNSHARPMASK
-static PyObject *
-_gaussian_blur(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_gaussian_blur, "gaussian_blur", Imaging_gaussian_blur_impl, HPyFunc_VARARGS)
+static HPy Imaging_gaussian_blur_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    PyObject *py_self = HPy_AsPyObject(ctx, self)
     Imaging imIn;
     Imaging imOut;
 
     float radius = 0;
     int passes = 3;
-    if (!PyArg_ParseTuple(args, "f|i", &radius, &passes)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "f|i", &radius, &passes)) {
+        return HPy_NULL;
     }
 
-    imIn = self->image;
+    imIn = PyImaging_AsImaging(py_self);
     imOut = ImagingNewDirty(imIn->mode, imIn->xsize, imIn->ysize);
     if (!imOut) {
-        return NULL;
+        return HPy_NULL;
     }
 
     if (!ImagingGaussianBlur(imOut, imIn, radius, passes)) {
         ImagingDelete(imOut);
-        return NULL;
+        return HPy_NULL;
     }
 
     return PyImagingNew(imOut);
