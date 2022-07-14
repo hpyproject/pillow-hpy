@@ -1034,7 +1034,7 @@ _filter(ImagingObject *self, PyObject *args) {
 #ifdef WITH_UNSHARPMASK
 HPyDef_METH(Imaging_gaussian_blur, "gaussian_blur", Imaging_gaussian_blur_impl, HPyFunc_VARARGS)
 static HPy Imaging_gaussian_blur_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
-    PyObject *py_self = HPy_AsPyObject(ctx, self)
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
     Imaging imIn;
     Imaging imOut;
 
@@ -1055,7 +1055,7 @@ static HPy Imaging_gaussian_blur_impl(HPyContext *ctx, HPy self, HPy *args, HPy_
         return HPy_NULL;
     }
 
-    return PyImagingNew(imOut);
+    return HPy_FromPyObject(ctx, PyImagingNew(imOut));
 }
 #endif
 
@@ -3524,7 +3524,6 @@ static struct PyMethodDef methods[] = {
 
 #ifdef WITH_UNSHARPMASK
     /* Kevin Cazabon's unsharpmask extension */
-    {"gaussian_blur", (PyCFunction)_gaussian_blur, METH_VARARGS},
     {"unsharp_mask", (PyCFunction)_unsharp_mask, METH_VARARGS},
 #endif
 
@@ -3631,6 +3630,9 @@ static PyType_Slot Imaging_Type_slots[] = {
 static HPyDef *Imaging_type_defines[]={
     &Imaging_copy,
     &Imaging_getpalettemode,
+
+    /* Kevin Cazabon's unsharpmask extension */
+    &Imaging_gaussian_blur,
     NULL
 };
 
