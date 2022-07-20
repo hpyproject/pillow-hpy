@@ -679,32 +679,36 @@ _radial_gradient(PyObject *self, PyObject *args) {
     return PyImagingNew(ImagingFillRadialGradient(mode));
 }
 
-static PyObject *
-_alpha_composite(ImagingObject *self, PyObject *args) {
-    ImagingObject *imagep1;
-    ImagingObject *imagep2;
+HPyDef_METH(Imaging_alpha_composite, "alpha_composite", Imaging_alpha_composite_impl, HPyFunc_VARARGS)
+static HPy Imaging_alpha_composite_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    HPy h_image1, h_image2;
 
-    if (!PyArg_ParseTuple(
-            args, "O!O!", Imaging_Type, &imagep1, Imaging_Type, &imagep2)) {
-        return NULL;
+    if (!HPyArg_Parse(
+            ctx, NULL, args, nargs, "O!O!", &h_image1, &h_image2)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingAlphaComposite(imagep1->image, imagep2->image));
+    ImagingObject *image1 = (ImagingObject *) HPy_AsPyObject(ctx, h_image1);
+    ImagingObject *image2 = (ImagingObject *) HPy_AsPyObject(ctx, h_image2);
+
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingAlphaComposite(image1->image, image2->image)));
 }
 
-static PyObject *
-_blend(ImagingObject *self, PyObject *args) {
-    ImagingObject *imagep1;
-    ImagingObject *imagep2;
+HPyDef_METH(Imaging_blend, "blend", Imaging_blend_impl, HPyFunc_VARARGS)
+static HPy Imaging_blend_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs){
+    HPy h_image1, h_image2;
     double alpha;
 
     alpha = 0.5;
-    if (!PyArg_ParseTuple(
-            args, "O!O!|d", Imaging_Type, &imagep1, Imaging_Type, &imagep2, &alpha)) {
-        return NULL;
+    if (!HPyArg_Parse(
+            ctx, NULL, args, nargs, "O!O!|d", &h_image1, &h_image2, &alpha)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingBlend(imagep1->image, imagep2->image, (float)alpha));
+    ImagingObject *image1 = (ImagingObject *) HPy_AsPyObject(ctx, h_image1);
+    ImagingObject *image2 = (ImagingObject *) HPy_AsPyObject(ctx, h_image2);
+
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingBlend(image1->image, image2->image, (float)alpha)));
 }
 
 /* -------------------------------------------------------------------- */
@@ -882,30 +886,32 @@ _color_lut_3d(ImagingObject *self, PyObject *args) {
     return PyImagingNew(imOut);
 }
 
-static PyObject *
-_convert(ImagingObject *self, PyObject *args) {
-    char *mode;
+HPyDef_METH(Imaging_convert, "convert", Imaging_convert_impl, HPyFunc_VARARGS)
+static HPy Imaging_convert_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    HPy h_mode, h_paletteimage = HPy_NULL;
     int dither = 0;
-    ImagingObject *paletteimage = NULL;
+    ImagingPalette palette = NULL;
+    const char *mode;
 
-    if (!PyArg_ParseTuple(args, "s|iO", &mode, &dither, &paletteimage)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O|iO", &h_mode, &dither, &h_paletteimage)) {
+        return HPy_NULL;
     }
-    if (paletteimage != NULL) {
+    if (!HPy_IsNull(h_paletteimage)) {
+        ImagingObject *paletteimage = (ImagingObject *) HPy_AsPyObject(ctx, h_paletteimage);
         if (!PyImaging_Check(paletteimage)) {
-            PyObject_Print((PyObject *)paletteimage, stderr, 0);
-            PyErr_SetString(
-                PyExc_ValueError, "palette argument must be image with mode 'P'");
-            return NULL;
+            HPyErr_SetString(ctx, ctx->h_ValueError, "palette argument must be image with mode 'P'");
+            return HPy_NULL;
         }
         if (paletteimage->image->palette == NULL) {
-            PyErr_SetString(PyExc_ValueError, "null palette");
-            return NULL;
+            HPyErr_SetString(ctx, ctx->h_ValueError, "null palette");
+            return HPy_NULL;
         }
     }
 
-    return PyImagingNew(ImagingConvert(
-        self->image, mode, paletteimage ? paletteimage->image->palette : NULL, dither));
+    ImagingObject *im = (ImagingObject *) HPy_AsPyObject(ctx, self);
+    mode = PyUnicode_AsUTF8(HPy_AsPyObject(ctx, h_mode));
+
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingConvert(im->image, mode, palette, dither)));
 }
 
 static PyObject *
@@ -985,15 +991,16 @@ _crop(ImagingObject *self, PyObject *args) {
     return PyImagingNew(ImagingCrop(self->image, x0, y0, x1, y1));
 }
 
-static PyObject *
-_expand_image(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_expand_image, "expand_image", Imaging_expand_image_impl, HPyFunc_VARARGS)
+static HPy Imaging_expand_image_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    Imaging im = PyImaging_AsImaging(py_self);
     int x, y;
     int mode = 0;
-    if (!PyArg_ParseTuple(args, "ii|i", &x, &y, &mode)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "ii|i", &x, &y, &mode)) {
+        return HPy_NULL;
     }
-
-    return PyImagingNew(ImagingExpand(self->image, x, y, mode));
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingExpand(im, x, y, mode)));
 }
 
 static PyObject *
@@ -1222,6 +1229,8 @@ parse_histogram_extremap(
     }
     return ep;
 }
+
+//HPyDef_METH
 
 static PyObject *
 _histogram(ImagingObject *self, PyObject *args) {
@@ -2281,8 +2290,10 @@ _putband(ImagingObject *self, PyObject *args) {
     return Py_None;
 }
 
-static PyObject *
-_merge(PyObject *self, PyObject *args) {
+HPyDef_METH(Imaging_merge, "merge", Imaging_merge_impl, HPyFunc_VARARGS)
+static HPy Imaging_merge_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+{
+    HPy h_mode, h_band0, h_band1, h_band2, h_band3;
     char *mode;
     ImagingObject *band0 = NULL;
     ImagingObject *band1 = NULL;
@@ -2290,35 +2301,24 @@ _merge(PyObject *self, PyObject *args) {
     ImagingObject *band3 = NULL;
     Imaging bands[4] = {NULL, NULL, NULL, NULL};
 
-    if (!PyArg_ParseTuple(
-            args,
-            "sO!|O!O!O!",
-            &mode,
-            Imaging_Type,
-            &band0,
-            Imaging_Type,
-            &band1,
-            Imaging_Type,
-            &band2,
-            Imaging_Type,
-            &band3)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "sO!|O!O!O!", h_mode, h_band0, h_band1, h_band2, h_band3)) {
+        return HPy_NULL;
     }
 
-    if (band0) {
-        bands[0] = band0->image;
+    if (!HPy_IsNull(h_band0)) {
+        bands[0] = ((ImagingObject *) HPy_AsPyObject(ctx, h_band0))->image;
     }
-    if (band1) {
-        bands[1] = band1->image;
+    if (!HPy_IsNull(h_band1)) {
+        bands[1] = ((ImagingObject *) HPy_AsPyObject(ctx, h_band1))->image;
     }
-    if (band2) {
-        bands[2] = band2->image;
+    if (!HPy_IsNull(h_band2)) {
+        bands[2] = ((ImagingObject *) HPy_AsPyObject(ctx, h_band2))->image;
     }
-    if (band3) {
-        bands[3] = band3->image;
+    if (!HPy_IsNull(h_band3)) {
+        bands[3] = ((ImagingObject *) HPy_AsPyObject(ctx, h_band3))->image;
     }
 
-    return PyImagingNew(ImagingMerge(mode, bands));
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingMerge(mode, bands)));
 }
 
 static PyObject *
@@ -3454,12 +3454,10 @@ static struct PyMethodDef methods[] = {
 
     /* Standard processing methods (Image) */
     {"color_lut_3d", (PyCFunction)_color_lut_3d, METH_VARARGS},
-    {"convert", (PyCFunction)_convert, METH_VARARGS},
     {"convert2", (PyCFunction)_convert2, METH_VARARGS},
     {"convert_matrix", (PyCFunction)_convert_matrix, METH_VARARGS},
     {"convert_transparent", (PyCFunction)_convert_transparent, METH_VARARGS},
     {"crop", (PyCFunction)_crop, METH_VARARGS},
-    {"expand", (PyCFunction)_expand_image, METH_VARARGS},
     {"filter", (PyCFunction)_filter, METH_VARARGS},
     {"histogram", (PyCFunction)_histogram, METH_VARARGS},
     {"entropy", (PyCFunction)_entropy, METH_VARARGS},
@@ -3628,7 +3626,15 @@ static PyType_Slot Imaging_Type_slots[] = {
 };
 
 static HPyDef *Imaging_type_defines[]={
+    /* Object factories */
+    &Imaging_alpha_composite,
+    &Imaging_blend,
+    &Imaging_merge,
+
+    /* Standard processing methods (Image) */
+    &Imaging_convert,
     &Imaging_copy,
+    &Imaging_expand_image,
     &Imaging_getpalettemode,
 
     /* Kevin Cazabon's unsharpmask extension */
@@ -3998,11 +4004,8 @@ PyImaging_MapBuffer(PyObject *self, PyObject *args);
 static PyMethodDef functions[] = {
 
     /* Object factories */
-    {"alpha_composite", (PyCFunction)_alpha_composite, METH_VARARGS},
-    {"blend", (PyCFunction)_blend, METH_VARARGS},
     {"fill", (PyCFunction)_fill, METH_VARARGS},
     {"new", (PyCFunction)_new, METH_VARARGS},
-    {"merge", (PyCFunction)_merge, METH_VARARGS},
 
     /* Functions */
     {"convert", (PyCFunction)_convert2, METH_VARARGS},
