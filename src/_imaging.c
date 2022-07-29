@@ -657,34 +657,36 @@ _new_block(PyObject *self, PyObject *args) {
     return PyImagingNew(ImagingNewBlock(mode, xsize, ysize));
 }
 
-static PyObject *
-_linear_gradient(PyObject *self, PyObject *args) {
-    char *mode;
+HPyDef_METH(linear_gradient, "linear_gradient", linear_gradient_impl, HPyFunc_VARARGS)
+static HPy linear_gradient_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    HPy h_mode;
 
-    if (!PyArg_ParseTuple(args, "s", &mode)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O", &h_mode)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingFillLinearGradient(mode));
+    const char *mode = PyUnicode_AsUTF8(HPy_AsPyObject(ctx, h_mode));
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingFillLinearGradient(mode)));
 }
 
-static PyObject *
-_radial_gradient(PyObject *self, PyObject *args) {
-    char *mode;
+HPyDef_METH(radial_gradient, "radial_gradient", radial_gradient_impl, HPyFunc_VARARGS)
+static HPy radial_gradient_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    HPy h_mode;
 
-    if (!PyArg_ParseTuple(args, "s", &mode)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O", &h_mode)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingFillRadialGradient(mode));
+    const char *mode = PyUnicode_AsUTF8(HPy_AsPyObject(ctx, h_mode));
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingFillRadialGradient(mode)));
 }
 
-HPyDef_METH(Imaging_alpha_composite, "alpha_composite", Imaging_alpha_composite_impl, HPyFunc_VARARGS)
-static HPy Imaging_alpha_composite_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+HPyDef_METH(alpha_composite, "alpha_composite", alpha_composite_impl, HPyFunc_VARARGS)
+static HPy alpha_composite_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     HPy h_image1, h_image2;
 
     if (!HPyArg_Parse(
-            ctx, NULL, args, nargs, "O!O!", &h_image1, &h_image2)) {
+            ctx, NULL, args, nargs, "OO", &h_image1, &h_image2)) {
         return HPy_NULL;
     }
 
@@ -694,14 +696,14 @@ static HPy Imaging_alpha_composite_impl(HPyContext *ctx, HPy self, HPy *args, HP
     return HPy_FromPyObject(ctx, PyImagingNew(ImagingAlphaComposite(image1->image, image2->image)));
 }
 
-HPyDef_METH(Imaging_blend, "blend", Imaging_blend_impl, HPyFunc_VARARGS)
-static HPy Imaging_blend_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs){
+HPyDef_METH(blend, "blend", blend_impl, HPyFunc_VARARGS)
+static HPy blend_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs){
     HPy h_image1, h_image2;
     double alpha;
 
     alpha = 0.5;
     if (!HPyArg_Parse(
-            ctx, NULL, args, nargs, "O!O!|d", &h_image1, &h_image2, &alpha)) {
+            ctx, NULL, args, nargs, "OO|d", &h_image1, &h_image2, &alpha)) {
         return HPy_NULL;
     }
 
@@ -981,14 +983,28 @@ static HPy Imaging_copy_impl(HPyContext *ctx, HPy self) {
     return HPy_FromPyObject(ctx, PyImagingNew(ImagingCopy(im)));
 }
 
-static PyObject *
-_crop(ImagingObject *self, PyObject *args) {
+
+HPyDef_METH(Imaging_crop, "crop", Imaging_crop_impl, HPyFunc_VARARGS)
+static HPy Imaging_crop_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     int x0, y0, x1, y1;
-    if (!PyArg_ParseTuple(args, "(iiii)", &x0, &y0, &x1, &y1)) {
-        return NULL;
+    HPy h_tuple;
+    PyObject *tuple;
+
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O", &h_tuple)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingCrop(self->image, x0, y0, x1, y1));
+    tuple = HPy_AsPyObject(ctx, h_tuple);
+    
+    x0 = PyLong_AsLong(PyTuple_GetItem(tuple, 0));
+    y0 = PyLong_AsLong(PyTuple_GetItem(tuple, 1));
+    x1 = PyLong_AsLong(PyTuple_GetItem(tuple, 2));
+    y1 = PyLong_AsLong(PyTuple_GetItem(tuple, 3));
+
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    Imaging im = PyImaging_AsImaging(py_self);
+
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingCrop(im, x0, y0, x1, y1)));
 }
 
 HPyDef_METH(Imaging_expand_image, "expand_image", Imaging_expand_image_impl, HPyFunc_VARARGS)
@@ -1229,8 +1245,6 @@ parse_histogram_extremap(
     }
     return ep;
 }
-
-//HPyDef_METH
 
 static PyObject *
 _histogram(ImagingObject *self, PyObject *args) {
@@ -2290,8 +2304,8 @@ _putband(ImagingObject *self, PyObject *args) {
     return Py_None;
 }
 
-HPyDef_METH(Imaging_merge, "merge", Imaging_merge_impl, HPyFunc_VARARGS)
-static HPy Imaging_merge_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+HPyDef_METH(merge, "merge", merge_impl, HPyFunc_VARARGS)
+static HPy merge_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
 {
     HPy h_mode, h_band0, h_band1, h_band2, h_band3;
     char *mode;
@@ -2301,7 +2315,7 @@ static HPy Imaging_merge_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t 
     ImagingObject *band3 = NULL;
     Imaging bands[4] = {NULL, NULL, NULL, NULL};
 
-    if (!HPyArg_Parse(ctx, NULL, args, nargs, "sO!|O!O!O!", h_mode, h_band0, h_band1, h_band2, h_band3)) {
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "sO|OOO", h_mode, h_band0, h_band1, h_band2, h_band3)) {
         return HPy_NULL;
     }
 
@@ -3388,13 +3402,14 @@ _effect_spread(ImagingObject *self, PyObject *args) {
 /* UTILITIES                                */
 /* -------------------------------------------------------------------- */
 
-static PyObject *
-_getcodecstatus(PyObject *self, PyObject *args) {
+HPyDef_METH(Imaging_getcodecstatus, "getcodecstatus", Imaging_getcodecstatus_impl, HPyFunc_VARARGS)
+static HPy Imaging_getcodecstatus_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+
     int status;
     char *msg;
 
-    if (!PyArg_ParseTuple(args, "i", &status)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "i", &status)) {
+        return HPy_NULL;
     }
 
     switch (status) {
@@ -3414,10 +3429,10 @@ _getcodecstatus(PyObject *self, PyObject *args) {
             msg = "out of memory";
             break;
         default:
-            Py_RETURN_NONE;
+            return HPy_Dup(ctx, ctx->h_None);
     }
 
-    return PyUnicode_FromString(msg);
+    return HPyUnicode_FromString(ctx, msg);
 }
 
 /* -------------------------------------------------------------------- */
@@ -3457,7 +3472,6 @@ static struct PyMethodDef methods[] = {
     {"convert2", (PyCFunction)_convert2, METH_VARARGS},
     {"convert_matrix", (PyCFunction)_convert_matrix, METH_VARARGS},
     {"convert_transparent", (PyCFunction)_convert_transparent, METH_VARARGS},
-    {"crop", (PyCFunction)_crop, METH_VARARGS},
     {"filter", (PyCFunction)_filter, METH_VARARGS},
     {"histogram", (PyCFunction)_histogram, METH_VARARGS},
     {"entropy", (PyCFunction)_entropy, METH_VARARGS},
@@ -3626,16 +3640,19 @@ static PyType_Slot Imaging_Type_slots[] = {
 };
 
 static HPyDef *Imaging_type_defines[]={
-    /* Object factories */
-    &Imaging_alpha_composite,
-    &Imaging_blend,
-    &Imaging_merge,
 
     /* Standard processing methods (Image) */
     &Imaging_convert,
     &Imaging_copy,
+    &Imaging_crop,
     &Imaging_expand_image,
     &Imaging_getpalettemode,
+
+    /* Utilities */
+    &Imaging_getcodecstatus,
+
+    /* Special Effects */
+    &linear_gradient,
 
     /* Kevin Cazabon's unsharpmask extension */
     &Imaging_gaussian_blur,
@@ -4068,16 +4085,10 @@ static PyMethodDef functions[] = {
     {"grabscreen_x11", (PyCFunction)PyImaging_GrabScreenX11, METH_VARARGS},
 #endif
 
-    /* Utilities */
-    {"getcodecstatus", (PyCFunction)_getcodecstatus, METH_VARARGS},
-
 /* Special effects (experimental) */
 #ifdef WITH_EFFECTS
     {"effect_mandelbrot", (PyCFunction)_effect_mandelbrot, METH_VARARGS},
     {"effect_noise", (PyCFunction)_effect_noise, METH_VARARGS},
-    {"linear_gradient", (PyCFunction)_linear_gradient, METH_VARARGS},
-    {"radial_gradient", (PyCFunction)_radial_gradient, METH_VARARGS},
-    {"wedge", (PyCFunction)_linear_gradient, METH_VARARGS}, /* Compatibility */
 #endif
 
 /* Drawing support stuff */
@@ -4232,6 +4243,21 @@ setup_module(HPyContext *ctx, HPy h_module) {
     return 0;
 }
 
+static HPyDef *module_defines[] = {
+    /* Object factories */
+    &alpha_composite,
+    &blend,
+    &merge,
+
+    /* Special effects (experimental) */
+#ifdef WITH_EFFECTS
+    &linear_gradient,
+    &radial_gradient,
+#endif
+
+    NULL,
+};
+
 HPy_MODINIT(_imaging)
 static HPy init__imaging_impl(HPyContext *ctx) {
 
@@ -4240,6 +4266,7 @@ static HPy init__imaging_impl(HPyContext *ctx) {
         .doc = NULL,       /* m_doc */
         .size = -1,         /* m_size */
         .legacy_methods = functions,  /* m_methods */
+        .defines = module_defines,
     };
 
     HPy m;
