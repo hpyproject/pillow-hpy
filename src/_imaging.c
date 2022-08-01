@@ -3346,8 +3346,8 @@ pixel_access_setitem(PixelAccessObject *self, PyObject *xy, PyObject *color) {
 
 #ifdef WITH_EFFECTS
 
-static PyObject *
-_effect_mandelbrot(ImagingObject *self, PyObject *args) {
+HPyDef_METH(effect_mandelbrot, "effect_mandelbrot", effect_mandelbrot_impl, HPyFunc_VARARGS)
+static HPy effect_mandelbrot_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     int xsize = 512;
     int ysize = 512;
     double extent[4];
@@ -3358,29 +3358,40 @@ _effect_mandelbrot(ImagingObject *self, PyObject *args) {
     extent[2] = 2;
     extent[3] = 2.5;
 
-    if (!PyArg_ParseTuple(
-            args,
-            "|(ii)(dddd)i",
-            &xsize,
-            &ysize,
-            &extent[0],
-            &extent[1],
-            &extent[2],
-            &extent[3],
-            &quality)) {
-        return NULL;
+    HPy h_size, h_extent;
+
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "|OOi", &h_size, &h_extent, &quality)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingEffectMandelbrot(xsize, ysize, extent, quality));
+    PyObject *py_size = HPy_AsPyObject(ctx, h_size);
+    PyObject *py_extent = HPy_AsPyObject(ctx, h_extent);
+
+    xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
+    ysize = PyLong_AsLong(PyTuple_GetItem(py_size,1));
+
+    extent[0] = PyLong_AsLong(PyTuple_GetItem(py_extent,0));
+    extent[1] = PyLong_AsLong(PyTuple_GetItem(py_extent,1));
+    extent[2] = PyLong_AsLong(PyTuple_GetItem(py_extent,2));
+    extent[3] = PyLong_AsLong(PyTuple_GetItem(py_extent,3));
+
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingEffectMandelbrot(xsize, ysize, extent, quality)));
 }
 
-static PyObject *
-_effect_noise(ImagingObject *self, PyObject *args) {
+HPyDef_METH(effect_noise, "effect_noise", effect_noise_impl, HPyFunc_VARARGS)
+static HPy effect_noise_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     int xsize, ysize;
     float sigma = 128;
-    if (!PyArg_ParseTuple(args, "(ii)|f", &xsize, &ysize, &sigma)) {
+    PyObject *py_size;
+    HPy h_size;
+    if (!PyArg_ParseTuple(args, "O|f", &h_size, &sigma)) {
         return NULL;
     }
+
+    py_size = HPy_AsPyObject(ctx, h_size);
+
+    xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
+    ysize = PyLong_AsLong(PyTuple_GetItem(py_size,1));
 
     return PyImagingNew(ImagingEffectNoise(xsize, ysize, sigma));
 }
@@ -3650,9 +3661,6 @@ static HPyDef *Imaging_type_defines[]={
 
     /* Utilities */
     &Imaging_getcodecstatus,
-
-    /* Special Effects */
-    &linear_gradient,
 
     /* Kevin Cazabon's unsharpmask extension */
     &Imaging_gaussian_blur,
@@ -4085,12 +4093,6 @@ static PyMethodDef functions[] = {
     {"grabscreen_x11", (PyCFunction)PyImaging_GrabScreenX11, METH_VARARGS},
 #endif
 
-/* Special effects (experimental) */
-#ifdef WITH_EFFECTS
-    {"effect_mandelbrot", (PyCFunction)_effect_mandelbrot, METH_VARARGS},
-    {"effect_noise", (PyCFunction)_effect_noise, METH_VARARGS},
-#endif
-
 /* Drawing support stuff */
 #ifdef WITH_IMAGEDRAW
     {"font", (PyCFunction)_font_new, METH_VARARGS},
@@ -4251,6 +4253,8 @@ static HPyDef *module_defines[] = {
 
     /* Special effects (experimental) */
 #ifdef WITH_EFFECTS
+    &effect_mandelbrot,
+    &effect_noise,
     &linear_gradient,
     &radial_gradient,
 #endif
