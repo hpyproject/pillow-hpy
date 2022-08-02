@@ -1019,39 +1019,50 @@ static HPy Imaging_expand_image_impl(HPyContext *ctx, HPy self, HPy *args, HPy_s
     return HPy_FromPyObject(ctx, PyImagingNew(ImagingExpand(im, x, y, mode)));
 }
 
-static PyObject *
-_filter(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_filter, "filter", Imaging_filter_impl, HPyFunc_VARARGS)
+static HPy Imaging_filter_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     PyObject *imOut;
     Py_ssize_t kernelsize;
     FLOAT32 *kerneldata;
 
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    Imaging im = PyImaging_AsImaging(py_self);
+
     int xsize, ysize, i;
     float divisor, offset;
-    PyObject *kernel = NULL;
-    if (!PyArg_ParseTuple(
-            args, "(ii)ffO", &xsize, &ysize, &divisor, &offset, &kernel)) {
-        return NULL;
+    HPy kernel = HPy_NULL, h_size;
+
+    if (!HPyArg_Parse(
+            ctx, NULL, args, nargs, "OffO", &h_size, &divisor, &offset, &kernel)) {
+        return HPy_NULL;
     }
 
+    PyObject *py_size = HPy_AsPyObject(ctx, h_size);
+    PyObject *py_kernel = HPy_AsPyObject(ctx, kernel);
+
+    xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
+    ysize = PyLong_AsLong(PyTuple_GetItem(py_size,1));
+
     /* get user-defined kernel */
-    kerneldata = getlist(kernel, &kernelsize, NULL, TYPE_FLOAT32);
+    kerneldata = getlist(py_kernel, &kernelsize, NULL, TYPE_FLOAT32);
     if (!kerneldata) {
-        return NULL;
+        return HPy_NULL;
     }
     if (kernelsize != (Py_ssize_t)xsize * (Py_ssize_t)ysize) {
-        free(kerneldata);
-        return ImagingError_ValueError("bad kernel size");
+        HPy_Close(ctx, kernel);
+        HPyErr_SetString(ctx, ctx->h_ValueError, "bad kernel size");
+        return HPy_NULL;
     }
 
     for (i = 0; i < kernelsize; ++i) {
         kerneldata[i] /= divisor;
     }
 
-    imOut = PyImagingNew(ImagingFilter(self->image, xsize, ysize, kerneldata, offset));
+    imOut = PyImagingNew(ImagingFilter(im, xsize, ysize, kerneldata, offset));
 
     free(kerneldata);
 
-    return imOut;
+    return HPy_FromPyObject(ctx, imOut);
 }
 
 #ifdef WITH_UNSHARPMASK
@@ -1287,8 +1298,8 @@ _histogram(ImagingObject *self, PyObject *args) {
     return list;
 }
 
-static PyObject *
-_entropy(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_entropy, "entropy", Imaging_entropy_impl, HPyFunc_VARARGS)
+static HPy Imaging_entropy_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     ImagingHistogram h;
     int idx, length;
     long sum;
@@ -1296,18 +1307,26 @@ _entropy(ImagingObject *self, PyObject *args) {
     union hist_extrema extrema;
     union hist_extrema *ep;
 
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    Imaging im = PyImaging_AsImaging(py_self);
+
+    HPy h_extremap = HPy_NULL, h_maskp = HPy_NULL;
+
     PyObject *extremap = NULL;
     ImagingObject *maskp = NULL;
-    if (!PyArg_ParseTuple(args, "|OO!", &extremap, Imaging_Type, &maskp)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "|OO", &h_extremap, &h_maskp)) {
+        return HPy_NULL;
     }
 
+    extremap = HPy_AsPyObject(ctx, h_extremap);
+    maskp = (ImagingObject *) HPy_AsPyObject(ctx, h_maskp);
+
     /* Using a local var to avoid allocations. */
-    ep = parse_histogram_extremap(self, extremap, &extrema);
-    h = ImagingGetHistogram(self->image, (maskp) ? maskp->image : NULL, ep);
+    ep = parse_histogram_extremap((ImagingObject *) py_self, extremap, &extrema);
+    h = ImagingGetHistogram(im, (maskp) ? maskp->image : NULL, ep);
 
     if (!h) {
-        return NULL;
+        return HPy_NULL;
     }
 
     /* Calculate the histogram entropy */
@@ -1332,7 +1351,7 @@ _entropy(ImagingObject *self, PyObject *args) {
     /* Destroy the histogram structure */
     ImagingHistogramDelete(h);
 
-    return PyFloat_FromDouble(-entropy);
+    return HPy_FromPyObject(ctx, PyFloat_FromDouble(-entropy));
 }
 
 #ifdef WITH_MODEFILTER
@@ -3504,9 +3523,7 @@ static struct PyMethodDef methods[] = {
     {"convert2", (PyCFunction)_convert2, METH_VARARGS},
     {"convert_matrix", (PyCFunction)_convert_matrix, METH_VARARGS},
     {"convert_transparent", (PyCFunction)_convert_transparent, METH_VARARGS},
-    {"filter", (PyCFunction)_filter, METH_VARARGS},
     {"histogram", (PyCFunction)_histogram, METH_VARARGS},
-    {"entropy", (PyCFunction)_entropy, METH_VARARGS},
 #ifdef WITH_MODEFILTER
     {"modefilter", (PyCFunction)_modefilter, METH_VARARGS},
 #endif
@@ -3670,7 +3687,9 @@ static HPyDef *Imaging_type_defines[]={
     &Imaging_convert,
     &Imaging_copy,
     &Imaging_crop,
+    &Imaging_entropy,
     &Imaging_expand_image,
+    &Imaging_filter,
     &Imaging_getpalettemode,
     &Imaging_resize,
     &Imaging_reduce,
