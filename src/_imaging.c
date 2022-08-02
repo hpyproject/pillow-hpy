@@ -1807,8 +1807,8 @@ _rankfilter(ImagingObject *self, PyObject *args) {
 }
 #endif
 
-static PyObject *
-_resize(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_resize, "resize", Imaging_resize_impl, HPyFunc_VARARGS)
+static HPy Imaging_resize_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     Imaging imIn;
     Imaging imOut;
 
@@ -1816,37 +1816,46 @@ _resize(ImagingObject *self, PyObject *args) {
     int filter = IMAGING_TRANSFORM_NEAREST;
     float box[4] = {0, 0, 0, 0};
 
-    imIn = self->image;
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    imIn = PyImaging_AsImaging(py_self);
     box[2] = imIn->xsize;
     box[3] = imIn->ysize;
 
-    if (!PyArg_ParseTuple(
-            args,
-            "(ii)|i(ffff)",
-            &xsize,
-            &ysize,
-            &filter,
-            &box[0],
-            &box[1],
-            &box[2],
-            &box[3])) {
-        return NULL;
-    }
+    HPy h_size, h_box;
+
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O|iO", &h_size, &filter, &h_box)) {
+        return HPy_NULL;
+    } 
+
+    PyObject *py_size = HPy_AsPyObject(ctx, h_size);
+    PyObject *py_box = HPy_AsPyObject(ctx, h_box);
+
+    xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
+    ysize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
+
+    box[0] = PyLong_AsLong(PyTuple_GetItem(py_box,0));
+    box[1] = PyLong_AsLong(PyTuple_GetItem(py_box,1));
+    box[2] = PyLong_AsLong(PyTuple_GetItem(py_box,2));
+    box[3] = PyLong_AsLong(PyTuple_GetItem(py_box,3));
 
     if (xsize < 1 || ysize < 1) {
-        return ImagingError_ValueError("height and width must be > 0");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "height and width must be > 0");
+        return HPy_NULL;
     }
 
     if (box[0] < 0 || box[1] < 0) {
-        return ImagingError_ValueError("box offset can't be negative");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "box offset can't be negative");
+        return HPy_NULL;
     }
 
     if (box[2] > imIn->xsize || box[3] > imIn->ysize) {
-        return ImagingError_ValueError("box can't exceed original image size");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "box can't exceed original image size");
+        return HPy_NULL;
     }
 
     if (box[2] - box[0] < 0 || box[3] - box[1] < 0) {
-        return ImagingError_ValueError("box can't be empty");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "box can't be empty");
+        return HPy_NULL;
     }
 
     // If box's coordinates are int and box size matches requested size
@@ -1870,47 +1879,57 @@ _resize(ImagingObject *self, PyObject *args) {
         imOut = ImagingResample(imIn, xsize, ysize, filter, box);
     }
 
-    return PyImagingNew(imOut);
+    return HPy_FromPyObject(ctx, PyImagingNew(imOut));
 }
 
-static PyObject *
-_reduce(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_reduce, "reduce", Imaging_reduce_impl, HPyFunc_VARARGS)
+static HPy Imaging_reduce_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     Imaging imIn;
     Imaging imOut;
 
     int xscale, yscale;
     int box[4] = {0, 0, 0, 0};
 
-    imIn = self->image;
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    imIn = PyImaging_AsImaging(py_self);
     box[2] = imIn->xsize;
     box[3] = imIn->ysize;
 
-    if (!PyArg_ParseTuple(
-            args,
-            "(ii)|(iiii)",
-            &xscale,
-            &yscale,
-            &box[0],
-            &box[1],
-            &box[2],
-            &box[3])) {
-        return NULL;
+    HPy h_scale, h_box;
+
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O|O", &h_scale, &h_box)) {
+        return HPy_NULL;
     }
 
+    PyObject *py_scale = HPy_AsPyObject(ctx, h_scale);
+    PyObject *py_box = HPy_AsPyObject(ctx, h_box);
+
+    xscale = PyLong_AsLong(PyTuple_GetItem(py_scale,0));
+    yscale = PyLong_AsLong(PyTuple_GetItem(py_scale,0));
+
+    box[0] = PyLong_AsLong(PyTuple_GetItem(py_box,0));
+    box[1] = PyLong_AsLong(PyTuple_GetItem(py_box,1));
+    box[2] = PyLong_AsLong(PyTuple_GetItem(py_box,2));
+    box[3] = PyLong_AsLong(PyTuple_GetItem(py_box,3));
+
     if (xscale < 1 || yscale < 1) {
-        return ImagingError_ValueError("scale must be > 0");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "scale must be > 0");
+        return HPy_NULL;
     }
 
     if (box[0] < 0 || box[1] < 0) {
-        return ImagingError_ValueError("box offset can't be negative");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "box offset can't be negative");
+        return HPy_NULL;
     }
 
     if (box[2] > imIn->xsize || box[3] > imIn->ysize) {
-        return ImagingError_ValueError("box can't exceed original image size");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "box can't can't exceed original image size");
+        return HPy_NULL;
     }
 
     if (box[2] <= box[0] || box[3] <= box[1]) {
-        return ImagingError_ValueError("box can't be empty");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "box can't be empty");
+        return HPy_NULL;
     }
 
     if (xscale == 1 && yscale == 1) {
@@ -1922,7 +1941,7 @@ _reduce(ImagingObject *self, PyObject *args) {
         imOut = ImagingReduce(imIn, xscale, yscale, box);
     }
 
-    return PyImagingNew(imOut);
+    return HPy_FromPyObject(ctx, PyImagingNew(imOut));
 }
 
 #define IS_RGB(mode) \
@@ -3384,8 +3403,8 @@ static HPy effect_noise_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t n
     float sigma = 128;
     PyObject *py_size;
     HPy h_size;
-    if (!PyArg_ParseTuple(args, "O|f", &h_size, &sigma)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O|f", &h_size, &sigma)) {
+        return HPy_NULL;
     }
 
     py_size = HPy_AsPyObject(ctx, h_size);
@@ -3393,18 +3412,20 @@ static HPy effect_noise_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t n
     xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
     ysize = PyLong_AsLong(PyTuple_GetItem(py_size,1));
 
-    return PyImagingNew(ImagingEffectNoise(xsize, ysize, sigma));
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingEffectNoise(xsize, ysize, sigma)));
 }
 
-static PyObject *
-_effect_spread(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_effect_spread, "effect_spread", Imaging_effect_spread_impl, HPyFunc_VARARGS)
+static HPy Imaging_effect_spread_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     int dist;
+    PyObject *py_self = HPy_AsPyObject(ctx, self);
+    Imaging im = PyImaging_AsImaging(py_self);
 
-    if (!PyArg_ParseTuple(args, "i", &dist)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "i", &dist)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingEffectSpread(self->image, dist));
+    return HPy_FromPyObject(ctx, PyImagingNew(ImagingEffectSpread(im, dist)));
 }
 
 #endif
@@ -3500,8 +3521,6 @@ static struct PyMethodDef methods[] = {
 #ifdef WITH_RANKFILTER
     {"rankfilter", (PyCFunction)_rankfilter, METH_VARARGS},
 #endif
-    {"resize", (PyCFunction)_resize, METH_VARARGS},
-    {"reduce", (PyCFunction)_reduce, METH_VARARGS},
     {"transpose", (PyCFunction)_transpose, METH_VARARGS},
     {"transform2", (PyCFunction)_transform2, METH_VARARGS},
 
@@ -3551,11 +3570,6 @@ static struct PyMethodDef methods[] = {
 #endif
 
     {"box_blur", (PyCFunction)_box_blur, METH_VARARGS},
-
-#ifdef WITH_EFFECTS
-    /* Special effects */
-    {"effect_spread", (PyCFunction)_effect_spread, METH_VARARGS},
-#endif
 
     /* Misc. */
     {"new_block", (PyCFunction)_new_block, METH_VARARGS},
@@ -3658,12 +3672,21 @@ static HPyDef *Imaging_type_defines[]={
     &Imaging_crop,
     &Imaging_expand_image,
     &Imaging_getpalettemode,
+    &Imaging_resize,
+    &Imaging_reduce,
 
     /* Utilities */
     &Imaging_getcodecstatus,
 
     /* Kevin Cazabon's unsharpmask extension */
     &Imaging_gaussian_blur,
+
+
+#ifdef WITH_EFFECTS
+    /* Special effects */
+    &Imaging_effect_spread,
+#endif
+
     NULL
 };
 
