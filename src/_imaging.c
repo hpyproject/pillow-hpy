@@ -2255,8 +2255,8 @@ static HPy Imaging_getcolors_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssiz
     return h_out;
 }
 
-static PyObject *
-_getextrema(ImagingObject *self) {
+HPyDef_METH(Imaging_getextrema, "getextrema", Imaging_getextrema_impl, HPyFunc_NOARGS)
+static HPy Imaging_getextrema_impl(HPyContext *ctx, HPy self) {
     union {
         UINT8 u[2];
         INT32 i[2];
@@ -2265,28 +2265,29 @@ _getextrema(ImagingObject *self) {
     } extrema;
     int status;
 
-    status = ImagingGetExtrema(self->image, &extrema);
+    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+
+    status = ImagingGetExtrema(im_self->image, &extrema);
     if (status < 0) {
-        return NULL;
+        return HPy_NULL;
     }
 
     if (status) {
-        switch (self->image->type) {
+        switch (im_self->image->type) {
             case IMAGING_TYPE_UINT8:
-                return Py_BuildValue("BB", extrema.u[0], extrema.u[1]);
+                return HPy_BuildValue(ctx, "BB", extrema.u[0], extrema.u[1]);
             case IMAGING_TYPE_INT32:
-                return Py_BuildValue("ii", extrema.i[0], extrema.i[1]);
+                return HPy_BuildValue(ctx, "ii", extrema.i[0], extrema.i[1]);
             case IMAGING_TYPE_FLOAT32:
-                return Py_BuildValue("dd", extrema.f[0], extrema.f[1]);
+                return HPy_BuildValue(ctx, "dd", extrema.f[0], extrema.f[1]);
             case IMAGING_TYPE_SPECIAL:
-                if (strcmp(self->image->mode, "I;16") == 0) {
-                    return Py_BuildValue("HH", extrema.s[0], extrema.s[1]);
+                if (strcmp(im_self->image->mode, "I;16") == 0) {
+                    return HPy_BuildValue(ctx, "HH", extrema.s[0], extrema.s[1]);
                 }
         }
     }
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    return HPy_FromPyObject(ctx, Py_None);
 }
 
 static PyObject *
@@ -3563,7 +3564,6 @@ static struct PyMethodDef methods[] = {
     {"transform2", (PyCFunction)_transform2, METH_VARARGS},
 
     {"isblock", (PyCFunction)_isblock, METH_NOARGS},
-    {"getextrema", (PyCFunction)_getextrema, METH_NOARGS},
     {"getprojection", (PyCFunction)_getprojection, METH_NOARGS},
 
     {"getband", (PyCFunction)_getband, METH_VARARGS},
@@ -3720,6 +3720,8 @@ static HPyDef *Imaging_type_defines[]={
 
     &Imaging_resize,
     &Imaging_reduce,
+
+    &Imaging_getextrema,
 
     &Imaging_getbbox,
     &Imaging_getcolors,
