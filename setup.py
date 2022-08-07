@@ -52,7 +52,7 @@ if sys.platform == "win32" and sys.version_info >= (3, 11):
     )
 
 
-HPY_ABI = 'cpython' if sys.implementation.name == 'cpython' else 'universal'
+HPY_ABI = 'hybrid' #if sys.implementation.name == 'cpython' else 'universal'
 _IMAGING = ("decode", "encode", "map", "display", "outline", "path")
 
 _LIB_IMAGING = (
@@ -989,21 +989,22 @@ ext_modules = [
     Extension("PIL._webp", ["src/_webp.c"]),
     Extension("PIL._imagingtk", ["src/_imagingtk.c", "src/Tk/tkImaging.c"]),
     Extension("PIL._imagingmath", ["src/_imagingmath.c"]),
-    Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]),
+    #Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]),
 ]
 
 try:
     setup(
         version=PILLOW_VERSION,
         cmdclass={"build_ext": pil_build_ext},
-        hpy_ext_modules=[Extension("PIL._imaging", files),],
+        hpy_ext_modules=[Extension("PIL._imaging", files),
+                         Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]),],
         ext_modules=ext_modules,
         #include_package_data=True,
         packages=["PIL"],
         package_dir={"": "src"},
         zip_safe=not (debug_build() or PLATFORM_MINGW),
         setup_requires=['hpy'],
-        hpy_abi=HPY_ABI,
+        hpy_abi="cpython",
     )
 except RequiredDependencyException as err:
     msg = f"""
