@@ -12,6 +12,7 @@
  */
 
 #include "Python.h"
+#include "hpy.h"
 #include "libImaging/Imaging.h"
 
 #define LUT_SIZE (1 << 9)
@@ -237,7 +238,9 @@ get_on_pixels(PyObject *self, PyObject *args) {
 }
 
 static int
-setup_module(PyObject *m) {
+setup_module(HPyContext *ctx, HPy h_module) {
+
+    PyObject *m = HPy_AsPyObject(ctx, h_module);
     PyObject *d = PyModule_GetDict(m);
 
     PyDict_SetItemString(d, "__version", PyUnicode_FromString("0.1"));
@@ -252,22 +255,24 @@ static PyMethodDef functions[] = {
     {"match", (PyCFunction)match, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}};
 
-PyMODINIT_FUNC
-PyInit__imagingmorph(void) {
-    PyObject *m;
-
-    static PyModuleDef module_def = {
-        PyModuleDef_HEAD_INIT,
-        "_imagingmorph",                       /* m_name */
-        "A module for doing image morphology", /* m_doc */
-        -1,                                    /* m_size */
-        functions,                             /* m_methods */
+HPy_MODINIT(_imagingmorph)
+static HPy init__imagingmorph_impl(HPyContext *ctx) {
+    
+    static HPyModuleDef module_def = {
+        .name = "_imagingmorph", /* m_name */
+        .doc = "A module for doing image morphology",       /* m_doc */
+        .size = -1,         /* m_size */
+        .legacy_methods = functions,  /* m_methods */
     };
 
-    m = PyModule_Create(&module_def);
+    HPy m;
+    m = HPyModule_Create(ctx, &module_def);
+    if (HPy_IsNull(m)) {
+        return HPy_NULL;
+    }
 
-    if (setup_module(m) < 0) {
-        return NULL;
+    if (setup_module(ctx, m) < 0) {
+        return HPy_NULL;
     }
 
     return m;
