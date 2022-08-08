@@ -12,6 +12,7 @@
  * 1996-04-08 fl   Added new/new_block/new_array factories
  * 1996-04-13 fl   Added decoders
  * 1996-05-04 fl   Added palette hack
+ * 1996-05-12 fl   Compile cleanly as C++
  * 1996-05-19 fl   Added matrix conversions, gradient fills
  * 1996-05-27 fl   Added display_mode
  * 1996-07-22 fl   Added getbbox, offset
@@ -1093,40 +1094,42 @@ static HPy Imaging_gaussian_blur_impl(HPyContext *ctx, HPy self, HPy *args, HPy_
 }
 #endif
 
-static PyObject *
-_getpalette(ImagingObject *self, PyObject *args) {
-    PyObject *palette;
+HPyDef_METH(Imaging_getpalette, "getpalette", Imaging_getpalette_impl, HPyFunc_VARARGS)
+static HPy Imaging_getpalette_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    HPy h_palette;
     int palettesize;
     int bits;
     ImagingShuffler pack;
 
+    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+
     char *mode = "RGB";
     char *rawmode = "RGB";
-    if (!PyArg_ParseTuple(args, "|ss", &mode, &rawmode)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "|ss", &mode, &rawmode)) {
+        return HPy_NULL;
     }
 
-    if (!self->image->palette) {
-        PyErr_SetString(PyExc_ValueError, no_palette);
-        return NULL;
+    if (!im_self->image->palette) {
+        HPyErr_SetString(ctx, ctx->h_ValueError, no_palette);
+        return HPy_NULL;
     }
 
     pack = ImagingFindPacker(mode, rawmode, &bits);
     if (!pack) {
-        PyErr_SetString(PyExc_ValueError, wrong_raw_mode);
-        return NULL;
+        HPyErr_SetString(ctx, ctx->h_ValueError, wrong_raw_mode);
+        return HPy_NULL;
     }
 
-    palettesize = self->image->palette->size;
-    palette = PyBytes_FromStringAndSize(NULL, palettesize * bits / 8);
-    if (!palette) {
-        return NULL;
+    palettesize = im_self->image->palette->size;
+    h_palette = HPy_FromPyObject(ctx, PyBytes_FromStringAndSize(NULL, palettesize * bits / 8));
+    if (HPy_IsNull(h_palette)) {
+        return HPy_NULL;
     }
 
     pack(
-        (UINT8 *)PyBytes_AsString(palette), self->image->palette->palette, palettesize);
+        (UINT8 *)HPyBytes_AsString(ctx, h_palette), im_self->image->palette->palette, palettesize);
 
-    return palette;
+    return h_palette;
 }
 
 HPyDef_METH(Imaging_getpalettemode, "getpalettemode", Imaging_getpalettemode_impl, HPyFunc_NOARGS)
@@ -2216,7 +2219,7 @@ static HPy Imaging_getbbox_impl(HPyContext *ctx, HPy self) {
         return HPy_FromPyObject(ctx, Py_None);
     }
 
-    return HPy_BuildValue(ctx, "iiii", bbox[0], bbox[1], bbox[2], bbox[3]);
+    return HPy_NULL;//HPy_BuildValue(ctx, "iiii", bbox[0], bbox[1], bbox[2], bbox[3]);
 }
 
 HPyDef_METH(Imaging_getcolors, "getcolors", Imaging_getcolors_impl, HPyFunc_VARARGS)
@@ -2244,8 +2247,8 @@ static HPy Imaging_getcolors_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssiz
         h_out = HPy_FromPyObject(ctx, PyList_New(colors));
         for (i = 0; i < colors; i++) {
             ImagingColorItem *v = &items[i];
-            HPy h_item = HPy_BuildValue(
-                ctx, "iN", v->count, getpixel(im_self->image, im_self->access, v->x, v->y));
+            HPy h_item = HPy_NULL;//HPy_BuildValue(
+                //ctx, "iN", v->count, getpixel(im_self->image, im_self->access, v->x, v->y));
             PyList_SetItem(HPy_AsPyObject(ctx, h_out), i, HPy_AsPyObject(ctx, h_item));
         }
     }
@@ -2275,14 +2278,14 @@ static HPy Imaging_getextrema_impl(HPyContext *ctx, HPy self) {
     if (status) {
         switch (im_self->image->type) {
             case IMAGING_TYPE_UINT8:
-                return HPy_BuildValue(ctx, "BB", extrema.u[0], extrema.u[1]);
+                return HPy_NULL;//HPy_BuildValue(ctx, "BB", extrema.u[0], extrema.u[1]);
             case IMAGING_TYPE_INT32:
-                return HPy_BuildValue(ctx, "ii", extrema.i[0], extrema.i[1]);
+                return HPy_NULL;//HPy_BuildValue(ctx, "ii", extrema.i[0], extrema.i[1]);
             case IMAGING_TYPE_FLOAT32:
-                return HPy_BuildValue(ctx, "dd", extrema.f[0], extrema.f[1]);
+                return HPy_NULL;//HPy_BuildValue(ctx, "dd", extrema.f[0], extrema.f[1]);
             case IMAGING_TYPE_SPECIAL:
                 if (strcmp(im_self->image->mode, "I;16") == 0) {
-                    return HPy_BuildValue(ctx, "HH", extrema.s[0], extrema.s[1]);
+                    return HPy_NULL;//HPy_BuildValue(ctx, "HH", extrema.s[0], extrema.s[1]);
                 }
         }
     }
@@ -3572,7 +3575,6 @@ static struct PyMethodDef methods[] = {
 
     {"setmode", (PyCFunction)im_setmode, METH_VARARGS},
 
-    {"getpalette", (PyCFunction)_getpalette, METH_VARARGS},
     {"putpalette", (PyCFunction)_putpalette, METH_VARARGS},
     {"putpalettealpha", (PyCFunction)_putpalettealpha, METH_VARARGS},
     {"putpalettealphas", (PyCFunction)_putpalettealphas, METH_VARARGS},
@@ -3726,6 +3728,8 @@ static HPyDef *Imaging_type_defines[]={
     &Imaging_getbbox,
     &Imaging_getcolors,
     &Imaging_split,
+
+    &Imaging_getpalette,
 
     /* Utilities */
     &Imaging_getcodecstatus,
