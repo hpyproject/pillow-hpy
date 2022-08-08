@@ -28,35 +28,36 @@
 
    Returns number of changed pixels.
 */
-static PyObject *
-apply(PyObject *self, PyObject *args) {
+
+HPyDef_METH(apply, "apply", apply_impl, HPyFunc_VARARGS)
+static HPy apply_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     const char *lut;
-    PyObject *py_lut;
-    Py_ssize_t lut_len, i0, i1;
+    HPy h_lut;
+    HPy_ssize_t lut_len, i0, i1;
     Imaging imgin, imgout;
     int width, height;
     int row_idx, col_idx;
     UINT8 **inrows, **outrows;
     int num_changed_pixels = 0;
 
-    if (!PyArg_ParseTuple(args, "Onn", &py_lut, &i0, &i1)) {
-        PyErr_SetString(PyExc_RuntimeError, "Argument parsing problem");
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "Onn", &h_lut, &i0, &i1)) {
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "Argument parsing problem");
+        return HPy_NULL;
     }
 
-    if (!PyBytes_Check(py_lut)) {
-        PyErr_SetString(PyExc_RuntimeError, "The morphology LUT is not a bytes object");
-        return NULL;
+    if (!HPyBytes_Check(ctx, h_lut)) {
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "The morphology LUT is not a bytes object");
+        return HPy_NULL;
     }
 
-    lut_len = PyBytes_Size(py_lut);
+    lut_len = HPyBytes_Size(ctx, h_lut);
 
     if (lut_len < LUT_SIZE) {
-        PyErr_SetString(PyExc_RuntimeError, "The morphology LUT has the wrong size");
-        return NULL;
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "The morphology LUT has the wrong size");
+        return HPy_NULL;
     }
 
-    lut = PyBytes_AsString(py_lut);
+    lut = HPyBytes_AsString(ctx, h_lut);
 
     imgin = (Imaging)i0;
     imgout = (Imaging)i1;
@@ -64,12 +65,12 @@ apply(PyObject *self, PyObject *args) {
     height = imgin->ysize;
 
     if (imgin->type != IMAGING_TYPE_UINT8 || imgin->bands != 1) {
-        PyErr_SetString(PyExc_RuntimeError, "Unsupported image type");
-        return NULL;
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "Unsupported image type");
+        return HPy_NULL;
     }
     if (imgout->type != IMAGING_TYPE_UINT8 || imgout->bands != 1) {
-        PyErr_SetString(PyExc_RuntimeError, "Unsupported image type");
-        return NULL;
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "Unsupported image type");
+        return HPy_NULL;
     }
 
     inrows = imgin->image8;
@@ -114,7 +115,7 @@ apply(PyObject *self, PyObject *args) {
             num_changed_pixels += ((b4 & 1) != (outrow[col_idx] & 1));
         }
     }
-    return Py_BuildValue("i", num_changed_pixels);
+    return HPy_BuildValue(ctx, "i", num_changed_pixels);
 }
 
 /* Match a morphologic LUT to a binary image and return a list
@@ -127,40 +128,41 @@ apply(PyObject *self, PyObject *args) {
 
    Returns list of matching pixels.
 */
-static PyObject *
-match(PyObject *self, PyObject *args) {
+
+HPyDef_METH(match, "match", match_impl, HPyFunc_VARARGS)
+static HPy match_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     const char *lut;
-    PyObject *py_lut;
-    Py_ssize_t lut_len, i0;
+    HPy h_lut;
+    HPy_ssize_t lut_len, i0;
     Imaging imgin;
     int width, height;
     int row_idx, col_idx;
     UINT8 **inrows;
-    PyObject *ret = PyList_New(0);
+    HPy h_ret = HPyList_New(ctx, 0);
 
-    if (!PyArg_ParseTuple(args, "On", &py_lut, &i0)) {
-        PyErr_SetString(PyExc_RuntimeError, "Argument parsing problem");
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "On", &h_lut, &i0)) {
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "Argument parsing problem");
+        return HPy_NULL;
     }
 
-    if (!PyBytes_Check(py_lut)) {
-        PyErr_SetString(PyExc_RuntimeError, "The morphology LUT is not a bytes object");
-        return NULL;
+    if (!HPyBytes_Check(ctx, h_lut)) {
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "The morphology LUT is not a bytes object");
+        return HPy_NULL;
     }
 
-    lut_len = PyBytes_Size(py_lut);
+    lut_len = HPyBytes_Size(ctx, h_lut);
 
     if (lut_len < LUT_SIZE) {
-        PyErr_SetString(PyExc_RuntimeError, "The morphology LUT has the wrong size");
-        return NULL;
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "The morphology LUT has the wrong size");
+        return HPy_NULL;
     }
 
-    lut = PyBytes_AsString(py_lut);
+    lut = HPyBytes_AsString(ctx, h_lut);
     imgin = (Imaging)i0;
 
     if (imgin->type != IMAGING_TYPE_UINT8 || imgin->bands != 1) {
-        PyErr_SetString(PyExc_RuntimeError, "Unsupported image type");
-        return NULL;
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "Unsupported image type");
+        return HPy_NULL;
     }
 
     inrows = imgin->image8;
@@ -194,31 +196,32 @@ match(PyObject *self, PyObject *args) {
                  (b6 << 6) | (b7 << 7) | (b8 << 8));
             if (lut[lut_idx]) {
                 PyObject *coordObj = Py_BuildValue("(nn)", col_idx, row_idx);
-                PyList_Append(ret, coordObj);
+                HPyList_Append(ctx, h_ret, HPy_FromPyObject(ctx, coordObj));
             }
         }
     }
 
-    return ret;
+    return h_ret;
 }
 
 /* Return a list of the coordinates of all turned on pixels in an image.
    May be used to extract features after a sequence of MorphOps were applied.
    This is faster than match as only 1x1 lookup is made.
 */
-static PyObject *
-get_on_pixels(PyObject *self, PyObject *args) {
-    Py_ssize_t i0;
+
+HPyDef_METH(get_on_pixels, "get_on_pixels", get_on_pixels_impl, HPyFunc_VARARGS)
+static HPy get_on_pixels_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    HPy_ssize_t i0;
     Imaging img;
     UINT8 **rows;
     int row_idx, col_idx;
     int width, height;
-    PyObject *ret = PyList_New(0);
+    HPy h_ret = HPyList_New(ctx, 0);
 
-    if (!PyArg_ParseTuple(args, "n", &i0)) {
-        PyErr_SetString(PyExc_RuntimeError, "Argument parsing problem");
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "n", &i0)) {
+        HPyErr_SetString(ctx, ctx->h_RuntimeError, "Argument parsing problem");
 
-        return NULL;
+        return HPy_NULL;
     }
     img = (Imaging)i0;
     rows = img->image8;
@@ -230,11 +233,11 @@ get_on_pixels(PyObject *self, PyObject *args) {
         for (col_idx = 0; col_idx < width; col_idx++) {
             if (row[col_idx]) {
                 PyObject *coordObj = Py_BuildValue("(nn)", col_idx, row_idx);
-                PyList_Append(ret, coordObj);
+                HPyList_Append(ctx, h_ret, HPy_FromPyObject(ctx, coordObj));
             }
         }
     }
-    return ret;
+    return h_ret;
 }
 
 static int
@@ -248,12 +251,12 @@ setup_module(HPyContext *ctx, HPy h_module) {
     return 0;
 }
 
-static PyMethodDef functions[] = {
+static HPyDef *module_defines[] = {
     /* Functions */
-    {"apply", (PyCFunction)apply, METH_VARARGS, NULL},
-    {"get_on_pixels", (PyCFunction)get_on_pixels, METH_VARARGS, NULL},
-    {"match", (PyCFunction)match, METH_VARARGS, NULL},
-    {NULL, NULL, 0, NULL}};
+    &apply,
+    &match,
+    &get_on_pixels,
+};
 
 HPy_MODINIT(_imagingmorph)
 static HPy init__imagingmorph_impl(HPyContext *ctx) {
@@ -262,7 +265,7 @@ static HPy init__imagingmorph_impl(HPyContext *ctx) {
         .name = "_imagingmorph", /* m_name */
         .doc = "A module for doing image morphology",       /* m_doc */
         .size = -1,         /* m_size */
-        .legacy_methods = functions,  /* m_methods */
+        .defines = module_defines,  /* m_methods */
     };
 
     HPy m;
