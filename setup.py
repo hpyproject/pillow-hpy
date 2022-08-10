@@ -52,7 +52,7 @@ if sys.platform == "win32" and sys.version_info >= (3, 11):
     )
 
 
-HPY_ABI = 'hybrid' #if sys.implementation.name == 'cpython' else 'universal'
+HPY_ABI = 'cpython' if sys.implementation.name == 'cpython' else 'universal'
 _IMAGING = ("decode", "encode", "map", "display", "outline", "path")
 
 _LIB_IMAGING = (
@@ -1004,7 +1004,7 @@ try:
         package_dir={"": "src"},
         zip_safe=not (debug_build() or PLATFORM_MINGW),
         setup_requires=['hpy'],
-        hpy_abi="cpython",
+        hpy_abi=HPY_ABI,
     )
 except RequiredDependencyException as err:
     msg = f"""
