@@ -430,8 +430,8 @@ float16tofloat32(const FLOAT16 in) {
     return out[0];
 }
 
-static inline PyObject *
-getpixel(Imaging im, ImagingAccess access, int x, int y) {
+static inline HPy
+getpixel(HPyContext *ctx, Imaging im, ImagingAccess access, int x, int y) {
     union {
         UINT8 b[4];
         UINT16 h;
@@ -447,8 +447,8 @@ getpixel(Imaging im, ImagingAccess access, int x, int y) {
     }
 
     if (x < 0 || x >= im->xsize || y < 0 || y >= im->ysize) {
-        PyErr_SetString(PyExc_IndexError, outside_image);
-        return NULL;
+        HPyErr_SetString(ctx, ctx->h_IndexError, outside_image);
+        return HPy_NULL;
     }
 
     access->get_pixel(im, x, y, &pixel);
@@ -457,30 +457,29 @@ getpixel(Imaging im, ImagingAccess access, int x, int y) {
         case IMAGING_TYPE_UINT8:
             switch (im->bands) {
                 case 1:
-                    return PyLong_FromLong(pixel.b[0]);
+                    return HPyLong_FromLong(ctx, pixel.b[0]);
                 case 2:
-                    return Py_BuildValue("BB", pixel.b[0], pixel.b[1]);
+                    return HPy_BuildValue(ctx, "II", pixel.b[0], pixel.b[1]);
                 case 3:
-                    return Py_BuildValue("BBB", pixel.b[0], pixel.b[1], pixel.b[2]);
+                    return HPy_BuildValue(ctx, "III", pixel.b[0], pixel.b[1], pixel.b[2]);
                 case 4:
-                    return Py_BuildValue(
-                        "BBBB", pixel.b[0], pixel.b[1], pixel.b[2], pixel.b[3]);
+                    return HPy_BuildValue(
+                        ctx, "IIII", pixel.b[0], pixel.b[1], pixel.b[2], pixel.b[3]);
             }
             break;
         case IMAGING_TYPE_INT32:
-            return PyLong_FromLong(pixel.i);
+            return HPyLong_FromLong(ctx, pixel.i);
         case IMAGING_TYPE_FLOAT32:
-            return PyFloat_FromDouble(pixel.f);
+            return HPyFloat_FromDouble(ctx, pixel.f);
         case IMAGING_TYPE_SPECIAL:
             if (strncmp(im->mode, "I;16", 4) == 0) {
-                return PyLong_FromLong(pixel.h);
+                return HPyLong_FromLong(ctx, pixel.h);
             }
             break;
     }
 
     /* unknown type */
-    Py_INCREF(Py_None);
-    return Py_None;
+    return HPy_FromPyObject(ctx, Py_None);
 }
 
 static char *
@@ -1146,36 +1145,36 @@ static HPy Imaging_getpalettemode_impl(HPyContext *ctx, HPy self) {
 }
 
 static inline int
-_getxy(PyObject *xy, int *x, int *y) {
-    PyObject *value;
+_getxy(HPyContext *ctx, HPy xy, int *x, int *y) {
+    HPy value;
 
-    if (!PyTuple_Check(xy) || PyTuple_GET_SIZE(xy) != 2) {
+    if (!PyTuple_Check(HPy_AsPyObject(ctx, xy)) || PyTuple_GET_SIZE(HPy_AsPyObject(ctx, xy)) != 2) {
         goto badarg;
     }
 
-    value = PyTuple_GET_ITEM(xy, 0);
-    if (PyLong_Check(value)) {
-        *x = PyLong_AS_LONG(value);
-    } else if (PyFloat_Check(value)) {
-        *x = (int)PyFloat_AS_DOUBLE(value);
+    value = HPy_FromPyObject(ctx, PyTuple_GET_ITEM(HPy_AsPyObject(ctx, xy), 0));
+    if (PyLong_Check(HPy_AsPyObject(ctx, value))) {
+        *x = HPyLong_AsLong(ctx, value);
+    } else if (PyFloat_Check(HPy_AsPyObject(ctx, value))) {
+        *x = (int)HPyFloat_AsDouble(ctx, value);
     } else {
-        PyObject *int_value = PyObject_CallMethod(value, "__int__", NULL);
-        if (int_value != NULL && PyLong_Check(int_value)) {
-            *x = PyLong_AS_LONG(int_value);
+        HPy int_value = HPy_FromPyObject(ctx, PyObject_CallMethod(HPy_AsPyObject(ctx, value), "__int__", NULL));
+        if (!HPy_IsNull(int_value) && PyLong_Check(HPy_AsPyObject(ctx, int_value))) {
+            *x = HPyLong_AsLong(ctx, int_value);
         } else {
             goto badval;
         }
     }
 
-    value = PyTuple_GET_ITEM(xy, 1);
-    if (PyLong_Check(value)) {
-        *y = PyLong_AS_LONG(value);
-    } else if (PyFloat_Check(value)) {
-        *y = (int)PyFloat_AS_DOUBLE(value);
+    value = HPy_FromPyObject(ctx, PyTuple_GET_ITEM(HPy_AsPyObject(ctx, xy), 1));
+    if (PyLong_Check(HPy_AsPyObject(ctx, value))) {
+        *y = HPyLong_AsLong(ctx, value);
+    } else if (PyFloat_Check(HPy_AsPyObject(ctx, value))) {
+        *y = (int)HPyFloat_AsDouble(ctx, value);
     } else {
-        PyObject *int_value = PyObject_CallMethod(value, "__int__", NULL);
-        if (int_value != NULL && PyLong_Check(int_value)) {
-            *y = PyLong_AS_LONG(int_value);
+        HPy int_value = HPy_FromPyObject(ctx, PyObject_CallMethod(HPy_AsPyObject(ctx, value), "__int__", NULL));
+        if (!HPy_IsNull(int_value) && PyLong_Check(HPy_AsPyObject(ctx, int_value))) {
+            *y = HPyLong_AsLong(ctx, int_value);
         } else {
             goto badval;
         }
@@ -1184,36 +1183,39 @@ _getxy(PyObject *xy, int *x, int *y) {
     return 0;
 
 badarg:
-    PyErr_SetString(PyExc_TypeError, "argument must be sequence of length 2");
+    HPyErr_SetString(ctx, ctx->h_TypeError, "argument must be sequence of length 2");
     return -1;
 
 badval:
-    PyErr_SetString(PyExc_TypeError, "an integer is required");
+    HPyErr_SetString(ctx, ctx->h_TypeError, "an integer is required");
     return -1;
 }
 
-static PyObject *
-_getpixel(ImagingObject *self, PyObject *args) {
-    PyObject *xy;
+HPyDef_METH(Imaging_getpixel, "getpixel", Imaging_getpixel_impl, HPyFunc_VARARGS)
+static HPy Imaging_getpixel_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+    HPy xy;
     int x, y;
 
-    if (PyTuple_GET_SIZE(args) != 1) {
-        PyErr_SetString(PyExc_TypeError, "argument 1 must be sequence of length 2");
-        return NULL;
+    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+
+    if (nargs != 1) {
+        HPyErr_SetString(ctx, ctx->h_TypeError, "argument 1 must be sequence of length 2");
+        return HPy_NULL;
     }
 
-    xy = PyTuple_GET_ITEM(args, 0);
-
-    if (_getxy(xy, &x, &y)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "O", &xy)) {
+        return HPy_NULL;
     }
 
-    if (self->access == NULL) {
-        Py_INCREF(Py_None);
-        return Py_None;
+    if (_getxy(ctx, xy, &x, &y)) {
+        return HPy_NULL;
     }
 
-    return getpixel(self->image, self->access, x, y);
+    if (im_self->access == NULL) {
+        return HPy_FromPyObject(ctx, Py_None);
+    }
+
+    return getpixel(ctx, im_self->image, im_self->access, x, y);
 }
 
 union hist_extrema {
@@ -2219,7 +2221,7 @@ static HPy Imaging_getbbox_impl(HPyContext *ctx, HPy self) {
         return HPy_FromPyObject(ctx, Py_None);
     }
 
-    return HPy_NULL;//HPy_BuildValue(ctx, "iiii", bbox[0], bbox[1], bbox[2], bbox[3]);
+    return HPy_BuildValue(ctx, "iiii", bbox[0], bbox[1], bbox[2], bbox[3]);
 }
 
 HPyDef_METH(Imaging_getcolors, "getcolors", Imaging_getcolors_impl, HPyFunc_VARARGS)
@@ -2247,8 +2249,8 @@ static HPy Imaging_getcolors_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssiz
         h_out = HPy_FromPyObject(ctx, PyList_New(colors));
         for (i = 0; i < colors; i++) {
             ImagingColorItem *v = &items[i];
-            HPy h_item = HPy_NULL;//HPy_BuildValue(
-                //ctx, "iN", v->count, getpixel(im_self->image, im_self->access, v->x, v->y));
+            HPy h_item = HPy_BuildValue(
+                ctx, "iN", v->count, getpixel(ctx, im_self->image, im_self->access, v->x, v->y));
             PyList_SetItem(HPy_AsPyObject(ctx, h_out), i, HPy_AsPyObject(ctx, h_item));
         }
     }
@@ -2278,14 +2280,14 @@ static HPy Imaging_getextrema_impl(HPyContext *ctx, HPy self) {
     if (status) {
         switch (im_self->image->type) {
             case IMAGING_TYPE_UINT8:
-                return HPy_NULL;//HPy_BuildValue(ctx, "BB", extrema.u[0], extrema.u[1]);
+                return HPy_BuildValue(ctx, "II", extrema.u[0], extrema.u[1]);
             case IMAGING_TYPE_INT32:
-                return HPy_NULL;//HPy_BuildValue(ctx, "ii", extrema.i[0], extrema.i[1]);
+                return HPy_BuildValue(ctx, "ii", extrema.i[0], extrema.i[1]);
             case IMAGING_TYPE_FLOAT32:
-                return HPy_NULL;//HPy_BuildValue(ctx, "dd", extrema.f[0], extrema.f[1]);
+                return HPy_BuildValue(ctx, "dd", extrema.f[0], extrema.f[1]);
             case IMAGING_TYPE_SPECIAL:
                 if (strcmp(im_self->image->mode, "I;16") == 0) {
-                    return HPy_NULL;//HPy_BuildValue(ctx, "HH", extrema.s[0], extrema.s[1]);
+                    return HPy_BuildValue(ctx, "HH", extrema.s[0], extrema.s[1]);
                 }
         }
     }
@@ -3358,14 +3360,14 @@ pixel_access_dealloc(PixelAccessObject *self) {
     PyObject_Del(self);
 }
 
-static PyObject *
-pixel_access_getitem(PixelAccessObject *self, PyObject *xy) {
+static HPy
+pixel_access_getitem(HPyContext *ctx, PixelAccessObject *self, HPy xy) {
     int x, y;
-    if (_getxy(xy, &x, &y)) {
-        return NULL;
+    if (_getxy(ctx, xy, &x, &y)) {
+        return HPy_NULL;
     }
 
-    return getpixel(self->image->image, self->image->access, x, y);
+    return getpixel(ctx, self->image->image, self->image->access, x, y);
 }
 
 static int
@@ -3379,9 +3381,9 @@ pixel_access_setitem(PixelAccessObject *self, PyObject *xy, PyObject *color) {
         return -1;
     }
 
-    if (_getxy(xy, &x, &y)) {
-        return -1;
-    }
+    //if (_getxy(xy, &x, &y)) {
+    //    return -1;
+    //}
 
     if (x < 0) {
         x = im->xsize + x;
@@ -3543,7 +3545,6 @@ _save_ppm(ImagingObject *self, PyObject *args) {
 static struct PyMethodDef methods[] = {
 
     /* Put commonly used methods first */
-    {"getpixel", (PyCFunction)_getpixel, METH_VARARGS},
 
     {"pixel_access", (PyCFunction)pixel_access_new, METH_VARARGS},
 
@@ -3686,7 +3687,7 @@ image_item(ImagingObject *self, Py_ssize_t i) {
         x = y = 0; /* leave it to getpixel to raise an exception */
     }
 
-    return getpixel(im, self->access, x, y);
+    return NULL;//getpixel(im, self->access, x, y);
 }
 
 /* type description */
@@ -3703,6 +3704,7 @@ static PyType_Slot Imaging_Type_slots[] = {
 static HPyDef *Imaging_type_defines[]={
 
     /* Put commonly used methods first */
+    &Imaging_getpixel,
     &Imaging_putpixel,
 
     /* Standard processing methods (Image) */
