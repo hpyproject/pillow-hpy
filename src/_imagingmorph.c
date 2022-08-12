@@ -11,7 +11,6 @@
  * See the README file for information on usage and redistribution.
  */
 
-#include "Python.h"
 #include "hpy.h"
 #include "libImaging/Imaging.h"
 
@@ -195,8 +194,8 @@ static HPy match_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
                 (b0 | (b1 << 1) | (b2 << 2) | (b3 << 3) | (b4 << 4) | (b5 << 5) |
                  (b6 << 6) | (b7 << 7) | (b8 << 8));
             if (lut[lut_idx]) {
-                PyObject *coordObj = Py_BuildValue("(nn)", col_idx, row_idx);
-                HPyList_Append(ctx, h_ret, HPy_FromPyObject(ctx, coordObj));
+                HPy h_coordObj = HPy_BuildValue(ctx, "(ii)", col_idx, row_idx);
+                HPyList_Append(ctx, h_ret, h_coordObj);
             }
         }
     }
@@ -232,23 +231,12 @@ static HPy get_on_pixels_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t 
         UINT8 *row = rows[row_idx];
         for (col_idx = 0; col_idx < width; col_idx++) {
             if (row[col_idx]) {
-                PyObject *coordObj = Py_BuildValue("(nn)", col_idx, row_idx);
-                HPyList_Append(ctx, h_ret, HPy_FromPyObject(ctx, coordObj));
+                HPy h_coordObj = HPy_BuildValue("(ii)", col_idx, row_idx);
+                HPyList_Append(ctx, h_ret, h_coordObj);
             }
         }
     }
     return h_ret;
-}
-
-static int
-setup_module(HPyContext *ctx, HPy h_module) {
-
-    PyObject *m = HPy_AsPyObject(ctx, h_module);
-    PyObject *d = PyModule_GetDict(m);
-
-    PyDict_SetItemString(d, "__version", PyUnicode_FromString("0.1"));
-
-    return 0;
 }
 
 static HPyDef *module_defines[] = {
@@ -271,10 +259,6 @@ static HPy init__imagingmorph_impl(HPyContext *ctx) {
     HPy m;
     m = HPyModule_Create(ctx, &module_def);
     if (HPy_IsNull(m)) {
-        return HPy_NULL;
-    }
-
-    if (setup_module(ctx, m) < 0) {
         return HPy_NULL;
     }
 
