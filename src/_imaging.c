@@ -124,12 +124,7 @@ typedef struct {
 
 static PyTypeObject* Imaging_Type;
 
-typedef struct {
-    Imaging image;
-    ImagingAccess access;
-} h_ImagingObject;
-
-HPyType_HELPERS(h_ImagingObject);
+HPyType_LEGACY_HELPERS(ImagingObject);
 
 #ifdef WITH_IMAGEDRAW
 
@@ -917,7 +912,7 @@ static HPy Imaging_convert_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_
         }
     }
 
-    h_ImagingObject *im_obj = h_ImagingObject_AsStruct(ctx, self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     Imaging im = im_obj->image;
     mode = PyUnicode_AsUTF8(HPy_AsPyObject(ctx, h_mode));
 
@@ -986,7 +981,7 @@ _convert_transparent(ImagingObject *self, PyObject *args) {
 
 HPyDef_METH(Imaging_copy, "copy", Imaging_copy_impl, HPyFunc_NOARGS)
 static HPy Imaging_copy_impl(HPyContext *ctx, HPy self) {
-    h_ImagingObject *im_obj = h_ImagingObject_AsStruct(ctx, self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     Imaging im = im_obj->image;
 
     return HPy_FromPyObject(ctx, PyImagingNew(ImagingCopy(im)));
@@ -1007,7 +1002,7 @@ static HPy Imaging_crop_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t n
     x1 = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_tuple, HPyLong_FromLong(ctx, 2)));
     y1 = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_tuple, HPyLong_FromLong(ctx, 3)));
     
-    h_ImagingObject *im_obj = h_ImagingObject_AsStruct(ctx, self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     Imaging im = im_obj->image;
 
     return HPy_FromPyObject(ctx, PyImagingNew(ImagingCrop(im, x0, y0, x1, y1)));
@@ -1015,7 +1010,7 @@ static HPy Imaging_crop_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t n
 
 HPyDef_METH(Imaging_expand_image, "expand_image", Imaging_expand_image_impl, HPyFunc_VARARGS)
 static HPy Imaging_expand_image_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
-    h_ImagingObject *im_obj = h_ImagingObject_AsStruct(ctx, self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     Imaging im = im_obj->image;
     int x, y;
     int mode = 0;
@@ -1031,7 +1026,7 @@ static HPy Imaging_filter_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t
     Py_ssize_t kernelsize;
     FLOAT32 *kerneldata;
 
-    h_ImagingObject *im_obj = h_ImagingObject_AsStruct(ctx, self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     Imaging im = im_obj->image;
 
     int xsize, ysize, i;
@@ -1082,7 +1077,7 @@ static HPy Imaging_gaussian_blur_impl(HPyContext *ctx, HPy self, HPy *args, HPy_
         return HPy_NULL;
     }
 
-    h_ImagingObject *im_obj = h_ImagingObject_AsStruct(ctx, self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     imIn = im_obj->image;
     imOut = ImagingNewDirty(imIn->mode, imIn->xsize, imIn->ysize);
     if (!imOut) {
@@ -1105,7 +1100,7 @@ static HPy Imaging_getpalette_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssi
     int bits;
     ImagingShuffler pack;
 
-    h_ImagingObject *im_obj = h_ImagingObject_AsStruct(ctx, self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     Imaging im = im_obj->image;
 
     char *mode = "RGB";
@@ -3757,7 +3752,7 @@ static HPyDef *Imaging_type_defines[]={
 
 HPyType_Spec Imaging_Type_spec = {
     .name = "ImagingCore",
-    .basicsize = sizeof(h_ImagingObject),
+    .basicsize = sizeof(ImagingObject),
     .flags = (HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_BASETYPE),
     .legacy_slots = Imaging_Type_slots,
     .legacy = true,
@@ -3809,7 +3804,7 @@ static HPyDef *ImagingDraw_type_defines[] = {
 
 HPyType_Spec ImagingDraw_Type_spec = {
     .name = "ImagingDraw",
-    .basicsize = sizeof(h_ImagingObject),
+    .basicsize = sizeof(ImagingObject),
     .flags = (HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_BASETYPE),
     .legacy_slots = ImagingDraw_Type_slots,
     .legacy = true,
