@@ -152,7 +152,7 @@ typedef struct {
     int blend;
 } ImagingDrawObject;
 
-static PyTypeObject* ImagingDraw_Type;
+static PyTypeObject ImagingDraw_Type;
 
 #endif
 
@@ -2833,7 +2833,7 @@ _draw_new(PyObject *self_, PyObject *args) {
         return NULL;
     }
 
-    self = PyObject_New(ImagingDrawObject, ImagingDraw_Type);
+    self = PyObject_New(ImagingDrawObject, &ImagingDraw_Type);
     if (self == NULL) {
         return NULL;
     }
@@ -3044,23 +3044,21 @@ _draw_ellipse(ImagingDrawObject *self, PyObject *args) {
     return Py_None;
 }
 
-HPyDef_METH(Imaging_draw_lines, "draw_lines", Imaging_draw_lines_impl, HPyFunc_VARARGS)
-static HPy Imaging_draw_lines_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+static PyObject *
+_draw_lines(ImagingDrawObject *self, PyObject *args) {
     double *xy;
-    HPy_ssize_t i, n;
+    Py_ssize_t i, n;
 
-    ImagingDrawObject *py_self = (ImagingDrawObject *) HPy_AsPyObject(ctx, self);
-
-    HPy h_data;
+    PyObject *data;
     int ink;
     int width = 0;
-    if (!HPyArg_Parse(ctx, NULL, args, nargs, "Oi|i", &h_data, &ink, &width)) {
-        return HPy_NULL;
+    if (!PyArg_ParseTuple(args, "Oi|i", &data, &ink, &width)) {
+        return NULL;
     }
 
-    n = PyPath_Flatten(HPy_AsPyObject(ctx, h_data), &xy);
+    n = PyPath_Flatten(data, &xy);
     if (n < 0) {
-        return HPy_NULL;
+        return NULL;
     }
 
     if (width <= 1) {
@@ -3068,42 +3066,43 @@ static HPy Imaging_draw_lines_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssi
         for (i = 0; i < n - 1; i++) {
             p = &xy[i + i];
             if (ImagingDrawLine(
-                    py_self->image->image,
+                    self->image->image,
                     (int)p[0],
                     (int)p[1],
                     (int)p[2],
                     (int)p[3],
                     &ink,
-                    py_self->blend) < 0) {
+                    self->blend) < 0) {
                 free(xy);
-                return HPy_NULL;
+                return NULL;
             }
         }
         if (p) { /* draw last point */
             ImagingDrawPoint(
-                py_self->image->image, (int)p[2], (int)p[3], &ink, py_self->blend);
+                self->image->image, (int)p[2], (int)p[3], &ink, self->blend);
         }
     } else {
         for (i = 0; i < n - 1; i++) {
             double *p = &xy[i + i];
             if (ImagingDrawWideLine(
-                    py_self->image->image,
+                    self->image->image,
                     (int)p[0],
                     (int)p[1],
                     (int)p[2],
                     (int)p[3],
                     &ink,
                     width,
-                    py_self->blend) < 0) {
+                    self->blend) < 0) {
                 free(xy);
-                return HPy_NULL;
+                return NULL;
             }
         }
     }
 
     free(xy);
 
-    return ctx->h_None;
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyObject *
@@ -3313,7 +3312,7 @@ _draw_rectangle(ImagingDrawObject *self, PyObject *args) {
 static struct PyMethodDef _draw_methods[] = {
 #ifdef WITH_IMAGEDRAW
     /* Graphics (ImageDraw) */
-    //{"draw_lines", (PyCFunction)_draw_lines, METH_VARARGS},
+    {"draw_lines", (PyCFunction)_draw_lines, METH_VARARGS},
 #ifdef WITH_ARROW
     {"draw_outline", (PyCFunction)_draw_outline, METH_VARARGS},
 #endif
@@ -3793,20 +3792,37 @@ static PyTypeObject ImagingFont_Type = {
     0,                         /*tp_getset*/
 };
 
-static PyType_Slot ImagingDraw_Type_slots[] = {
-    {Py_tp_dealloc, (destructor)_draw_dealloc},
-};
-
-static HPyDef *ImagingDraw_type_defines[] = {
-    &Imaging_draw_lines,
-};
-
-HPyType_Spec ImagingDraw_Type_spec = {
-    .name = "ImagingDraw",
-    .basicsize = sizeof(ImagingObject),
-    .flags = (HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_BASETYPE),
-    .legacy_slots = ImagingDraw_Type_slots,
-    .legacy = true,
+static PyTypeObject ImagingDraw_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0) "ImagingDraw", /*tp_name*/
+    sizeof(ImagingDrawObject),                    /*tp_size*/
+    0,                                            /*tp_itemsize*/
+    /* methods */
+    (destructor)_draw_dealloc, /*tp_dealloc*/
+    0,                         /*tp_print*/
+    0,                         /*tp_getattr*/
+    0,                         /*tp_setattr*/
+    0,                         /*tp_compare*/
+    0,                         /*tp_repr*/
+    0,                         /*tp_as_number */
+    0,                         /*tp_as_sequence */
+    0,                         /*tp_as_mapping */
+    0,                         /*tp_hash*/
+    0,                         /*tp_call*/
+    0,                         /*tp_str*/
+    0,                         /*tp_getattro*/
+    0,                         /*tp_setattro*/
+    0,                         /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT,        /*tp_flags*/
+    0,                         /*tp_doc*/
+    0,                         /*tp_traverse*/
+    0,                         /*tp_clear*/
+    0,                         /*tp_richcompare*/
+    0,                         /*tp_weaklistoffset*/
+    0,                         /*tp_iter*/
+    0,                         /*tp_iternext*/
+    _draw_methods,             /*tp_methods*/
+    0,                         /*tp_members*/
+    0,                         /*tp_getset*/
 };
 
 #endif
@@ -4209,8 +4225,8 @@ setup_module(HPyContext *ctx, HPy h_module) {
         return -1;
     }
 
-    HPy h_draw_type = HPyType_FromSpec(ctx, &ImagingDraw_Type_spec, NULL);
-    if (HPy_IsNull(h_draw_type)) {
+
+    if (PyType_Ready(&ImagingDraw_Type) < 0) {
         return -1;
     }
 #endif
