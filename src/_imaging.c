@@ -187,17 +187,16 @@ PyImagingNew(Imaging imOut) {
     return (PyObject *)imagep;
 }
 
-static void
-_dealloc(ImagingObject *imagep) {
+HPyDef_SLOT(Imaging_destroy, Imaging_destroy_impl, HPy_tp_destroy)
+static void Imaging_destroy_impl(void *obj) {
 #ifdef VERBOSE
     printf("imaging %p deleted\n", imagep);
 #endif
-
+    ImagingObject *imagep = (ImagingObject *)obj;
     if (imagep->access) {
         ImagingAccessDelete(imagep->image, imagep->access);
     }
     ImagingDelete(imagep->image);
-    PyObject_Del(imagep);
 }
 
 #define PyImaging_Check(op) (Py_TYPE(op) == Imaging_Type)
@@ -461,12 +460,12 @@ getpixel(HPyContext *ctx, Imaging im, ImagingAccess access, int x, int y) {
                 case 1:
                     return HPyLong_FromLong(ctx, pixel.b[0]);
                 case 2:
-                    return HPy_BuildValue(ctx, "II", pixel.b[0], pixel.b[1]);
+                    return HPy_NULL;//HPy_BuildValue(ctx, "II", pixel.b[0], pixel.b[1]);
                 case 3:
-                    return HPy_BuildValue(ctx, "III", pixel.b[0], pixel.b[1], pixel.b[2]);
+                    return HPy_NULL;//HPy_BuildValue(ctx, "III", pixel.b[0], pixel.b[1], pixel.b[2]);
                 case 4:
-                    return HPy_BuildValue(
-                        ctx, "IIII", pixel.b[0], pixel.b[1], pixel.b[2], pixel.b[3]);
+                    return HPy_NULL;//HPy_BuildValue(
+                        //ctx, "IIII", pixel.b[0], pixel.b[1], pixel.b[2], pixel.b[3]);
             }
             break;
         case IMAGING_TYPE_INT32:
@@ -2222,7 +2221,7 @@ static HPy Imaging_getbbox_impl(HPyContext *ctx, HPy self) {
         return HPy_FromPyObject(ctx, Py_None);
     }
 
-    return HPy_BuildValue(ctx, "iiii", bbox[0], bbox[1], bbox[2], bbox[3]);
+    return HPy_NULL;//HPy_BuildValue(ctx, "iiii", bbox[0], bbox[1], bbox[2], bbox[3]);
 }
 
 HPyDef_METH(Imaging_getcolors, "getcolors", Imaging_getcolors_impl, HPyFunc_VARARGS)
@@ -2250,8 +2249,8 @@ static HPy Imaging_getcolors_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssiz
         h_out = HPy_FromPyObject(ctx, PyList_New(colors));
         for (i = 0; i < colors; i++) {
             ImagingColorItem *v = &items[i];
-            HPy h_item = HPy_BuildValue(
-                ctx, "iN", v->count, getpixel(ctx, im_self->image, im_self->access, v->x, v->y));
+            HPy h_item = HPy_NULL;//HPy_BuildValue(
+                //ctx, "iN", v->count, getpixel(ctx, im_self->image, im_self->access, v->x, v->y));
             PyList_SetItem(HPy_AsPyObject(ctx, h_out), i, HPy_AsPyObject(ctx, h_item));
         }
     }
@@ -2281,14 +2280,14 @@ static HPy Imaging_getextrema_impl(HPyContext *ctx, HPy self) {
     if (status) {
         switch (im_self->image->type) {
             case IMAGING_TYPE_UINT8:
-                return HPy_BuildValue(ctx, "II", extrema.u[0], extrema.u[1]);
+                return HPy_NULL;//HPy_BuildValue(ctx, "II", extrema.u[0], extrema.u[1]);
             case IMAGING_TYPE_INT32:
-                return HPy_BuildValue(ctx, "ii", extrema.i[0], extrema.i[1]);
+                return HPy_NULL;//HPy_BuildValue(ctx, "ii", extrema.i[0], extrema.i[1]);
             case IMAGING_TYPE_FLOAT32:
-                return HPy_BuildValue(ctx, "dd", extrema.f[0], extrema.f[1]);
+                return HPy_NULL;//HPy_BuildValue(ctx, "dd", extrema.f[0], extrema.f[1]);
             case IMAGING_TYPE_SPECIAL:
                 if (strcmp(im_self->image->mode, "I;16") == 0) {
-                    return HPy_BuildValue(ctx, "HH", extrema.s[0], extrema.s[1]);
+                    return HPy_NULL;//HPy_BuildValue(ctx, "HH", extrema.s[0], extrema.s[1]);
                 }
         }
     }
@@ -3622,51 +3621,44 @@ static struct PyMethodDef methods[] = {
 
 /* attributes */
 
-static PyObject *
-_getattr_mode(ImagingObject *self, void *closure) {
-    return PyUnicode_FromString(self->image->mode);
+HPyDef_GET(Imaging_getattr_mode, "mode", Imaging_getattr_mode_impl)
+static HPy Imaging_getattr_mode_impl(HPyContext *ctx, HPy self, void *closure) {
+    return HPyUnicode_FromString(ctx, ((ImagingObject *) HPy_AsPyObject(ctx, self))->image->mode);
 }
 
-static PyObject *
-_getattr_size(ImagingObject *self, void *closure) {
-    return Py_BuildValue("ii", self->image->xsize, self->image->ysize);
+HPyDef_GET(Imaging_getattr_size, "size", Imaging_getattr_size_impl)
+static HPy Imaging_getattr_size_impl(HPyContext *ctx, HPy self, void *closure) {
+    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+    return HPy_FromPyObject(ctx, Py_BuildValue("ii", im_self->image->xsize, im_self->image->ysize));
 }
 
-static PyObject *
-_getattr_bands(ImagingObject *self, void *closure) {
-    return PyLong_FromLong(self->image->bands);
+HPyDef_GET(Imaging_getattr_bands, "bands", Imaging_getattr_bands_impl)
+static HPy Imaging_getattr_bands_impl(HPyContext *ctx, HPy self, void *closure) {
+    return HPyLong_FromLong(ctx, ((ImagingObject *) HPy_AsPyObject(ctx, self))->image->bands);
 }
 
-static PyObject *
-_getattr_id(ImagingObject *self, void *closure) {
-    return PyLong_FromSsize_t((Py_ssize_t)self->image);
+HPyDef_GET(Imaging_getattr_id, "id", Imaging_getattr_id_impl)
+static HPy Imaging_getattr_id_impl(HPyContext *ctx, HPy self, void *closure) {
+    return HPyLong_FromSsize_t(ctx, (HPy_ssize_t)((ImagingObject *) HPy_AsPyObject(ctx, self))->image);
 }
 
-static PyObject *
-_getattr_ptr(ImagingObject *self, void *closure) {
-    return PyCapsule_New(self->image, IMAGING_MAGIC, NULL);
+HPyDef_GET(Imaging_getattr_ptr, "ptr", Imaging_getattr_ptr_impl)
+static HPy Imaging_getattr_ptr_impl(HPyContext *ctx, HPy self, void *closure) {
+    return HPy_FromPyObject(ctx, PyCapsule_New(((ImagingObject *) HPy_AsPyObject(ctx, self))->image, IMAGING_MAGIC, NULL));
 }
 
-static PyObject *
-_getattr_unsafe_ptrs(ImagingObject *self, void *closure) {
-    return Py_BuildValue(
+HPyDef_GET(Imaging_getattr_unsafe_ptrs, "unsafe_ptrs", Imaging_getattr_unsafe_ptrs_impl)
+static HPy Imaging_getattr_unsafe_ptrs_impl(HPyContext *ctx, HPy self, void *closure) {
+    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+    return HPy_FromPyObject(ctx, Py_BuildValue(
         "(sn)(sn)(sn)",
         "image8",
-        self->image->image8,
+        im_self->image->image8,
         "image32",
-        self->image->image32,
+        im_self->image->image32,
         "image",
-        self->image->image);
+        im_self->image->image));
 };
-
-static struct PyGetSetDef getsetters[] = {
-    {"mode", (getter)_getattr_mode},
-    {"size", (getter)_getattr_size},
-    {"bands", (getter)_getattr_bands},
-    {"id", (getter)_getattr_id},
-    {"ptr", (getter)_getattr_ptr},
-    {"unsafe_ptrs", (getter)_getattr_unsafe_ptrs},
-    {NULL}};
 
 /* basic sequence semantics */
 
@@ -3695,15 +3687,22 @@ image_item(ImagingObject *self, Py_ssize_t i) {
 /* type description */
 
 static PyType_Slot Imaging_Type_slots[] = {
-    {Py_tp_dealloc, (destructor)_dealloc},
     {Py_sq_length, (lenfunc)image_length},
     {Py_sq_item, (ssizeargfunc)image_item},
     {Py_tp_methods, methods},
-    {Py_tp_getset, getsetters},
     {0, NULL}
 };
 
 static HPyDef *Imaging_type_defines[]={
+
+    &Imaging_destroy,
+
+    &Imaging_getattr_mode,
+    &Imaging_getattr_size,
+    &Imaging_getattr_bands,
+    &Imaging_getattr_id,
+    &Imaging_getattr_ptr,
+    &Imaging_getattr_unsafe_ptrs,
 
     /* Put commonly used methods first */
     &Imaging_getpixel,
@@ -4333,9 +4332,9 @@ HPy_MODINIT(_imaging)
 static HPy init__imaging_impl(HPyContext *ctx) {
 
     static HPyModuleDef module_def = {
-        .name = "_imaging", /* m_name */
-        .doc = NULL,       /* m_doc */
-        .size = -1,         /* m_size */
+        .m_name = "_imaging", /* m_name */
+        .m_doc = NULL,       /* m_doc */
+        .m_size = -1,         /* m_size */
         .legacy_methods = functions,  /* m_methods */
         .defines = module_defines,
     };
