@@ -114,7 +114,7 @@ static HPy apply_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
             num_changed_pixels += ((b4 & 1) != (outrow[col_idx] & 1));
         }
     }
-    return HPy_BuildValue(ctx, "i", num_changed_pixels);
+    return HPy_NULL;//HPy_BuildValue(ctx, "i", num_changed_pixels);
 }
 
 /* Match a morphologic LUT to a binary image and return a list
@@ -194,7 +194,7 @@ static HPy match_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
                 (b0 | (b1 << 1) | (b2 << 2) | (b3 << 3) | (b4 << 4) | (b5 << 5) |
                  (b6 << 6) | (b7 << 7) | (b8 << 8));
             if (lut[lut_idx]) {
-                HPy h_coordObj = HPy_BuildValue(ctx, "(ii)", col_idx, row_idx);
+                HPy h_coordObj = HPy_NULL;//HPy_BuildValue(ctx, "(ii)", col_idx, row_idx);
                 HPyList_Append(ctx, h_ret, h_coordObj);
             }
         }
@@ -231,7 +231,7 @@ static HPy get_on_pixels_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t 
         UINT8 *row = rows[row_idx];
         for (col_idx = 0; col_idx < width; col_idx++) {
             if (row[col_idx]) {
-                HPy h_coordObj = HPy_BuildValue(ctx, "(ii)", col_idx, row_idx);
+                HPy h_coordObj = HPy_NULL;//HPy_BuildValue(ctx, "(ii)", col_idx, row_idx);
                 HPyList_Append(ctx, h_ret, h_coordObj);
             }
         }

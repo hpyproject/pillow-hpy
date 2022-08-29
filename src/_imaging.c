@@ -1858,14 +1858,11 @@ static HPy Imaging_putpixel_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize
         return HPy_NULL;
     }
 
-    PyObject *coords = HPy_AsPyObject(ctx, h_coords);
-    PyObject *color = HPy_AsPyObject(ctx, h_color);
+    x = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_coords, HPyLong_FromLong(ctx, 0)));
+    y = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_coords, HPyLong_FromLong(ctx, 1)));
 
-    x = PyLong_AsLong(PyTuple_GetItem(coords, 0));
-    y = PyLong_AsLong(PyTuple_GetItem(coords, 1));
-
-    ImagingObject *py_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
-    im = py_self->image;
+    ImagingObject *im_self = ImagingObject_AsStruct(ctx, self);
+    im = im_self->image;
 
     if (x < 0) {
         x = im->xsize + x;
@@ -1879,15 +1876,15 @@ static HPy Imaging_putpixel_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize
         return HPy_NULL;
     }
 
-    if (!getink(color, im, ink)) {
+    if (!getink(HPy_AsPyObject(ctx, h_color), im, ink)) {
         return HPy_NULL;
     }
 
-    if (py_self->access) {
-        py_self->access->put_pixel(im, x, y, ink);
+    if (im_self->access) {
+        im_self->access->put_pixel(im, x, y, ink);
     }
 
-    return HPy_FromPyObject(ctx, Py_None);
+    return ctx->h_None;
 }
 
 #ifdef WITH_RANKFILTER
@@ -1911,8 +1908,8 @@ static HPy Imaging_resize_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t
     int filter = IMAGING_TRANSFORM_NEAREST;
     float box[4] = {0, 0, 0, 0};
 
-    PyObject *py_self = HPy_AsPyObject(ctx, self);
-    imIn = PyImaging_AsImaging(py_self);
+    ImagingObject *im_self = ImagingObject_AsStruct(ctx, self);
+    imIn = im_self->image;
     box[2] = imIn->xsize;
     box[3] = imIn->ysize;
 
@@ -1925,13 +1922,13 @@ static HPy Imaging_resize_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t
     PyObject *py_size = HPy_AsPyObject(ctx, h_size);
     PyObject *py_box = HPy_AsPyObject(ctx, h_box);
 
-    xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
-    ysize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
+    xsize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 0)));
+    ysize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 1)));
 
-    box[0] = PyLong_AsLong(PyTuple_GetItem(py_box,0));
-    box[1] = PyLong_AsLong(PyTuple_GetItem(py_box,1));
-    box[2] = PyLong_AsLong(PyTuple_GetItem(py_box,2));
-    box[3] = PyLong_AsLong(PyTuple_GetItem(py_box,3));
+    box[0] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_box, HPyLong_FromLong(ctx, 0)));
+    box[1] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_box, HPyLong_FromLong(ctx, 1)));
+    box[2] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_box, HPyLong_FromLong(ctx, 2)));
+    box[3] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_box, HPyLong_FromLong(ctx, 3)));
 
     if (xsize < 1 || ysize < 1) {
         HPyErr_SetString(ctx, ctx->h_ValueError, "height and width must be > 0");
@@ -1974,7 +1971,7 @@ static HPy Imaging_resize_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t
         imOut = ImagingResample(imIn, xsize, ysize, filter, box);
     }
 
-    return HPy_FromPyObject(ctx, PyImagingNew(imOut));
+    return HPyImagingNew(ctx, imOut);
 }
 
 HPyDef_METH(Imaging_reduce, "reduce", Imaging_reduce_impl, HPyFunc_VARARGS)
@@ -2478,9 +2475,9 @@ static HPy Imaging_split_impl(HPyContext *ctx, HPy self) {
         //HPy_SetItem(ctx, h_list, HPyLong_FromLong(ctx, i), h_New);
         PyTuple_SET_ITEM(HPy_AsPyObject(ctx, h_list), i, HPy_AsPyObject(ctx, h_New));
     }
-    if (fails) {
-        HPy_Close(ctx, h_list);
-    }
+    // (fails) {
+    //    HPy_Close(ctx, h_list);
+    //}
     return h_list;
 }
 
