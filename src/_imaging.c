@@ -187,6 +187,29 @@ PyImagingNew(Imaging imOut) {
     return (PyObject *)imagep;
 }
 
+HPy HPyImagingNew(HPyContext *ctx, Imaging imOut) {
+    ImagingObject *imagep;
+
+    if (!imOut) {
+        return HPy_NULL;
+    }
+
+    HPy hImagingType = HPy_FromPyObject(ctx, Imaging_Type);
+
+    HPy hOut = HPy_New(ctx, hImagingType, &imagep);
+
+    HPy_Close(ctx, hImagingType);
+
+#ifdef VERBOSE
+    printf("imaging %p allocated\n", imagep);
+#endif
+
+    imagep->image = imOut;
+    imagep->access = ImagingAccessNew(imOut);
+
+    return hOut;
+}
+
 HPyDef_SLOT(Imaging_destroy, Imaging_destroy_impl, HPy_tp_destroy)
 static void Imaging_destroy_impl(void *obj) {
 #ifdef VERBOSE
@@ -601,49 +624,66 @@ getink(PyObject *color, Imaging im, char *ink) {
 /* FACTORIES                                */
 /* -------------------------------------------------------------------- */
 
-static PyObject *
-_fill(PyObject *self, PyObject *args) {
+
+HPyDef_METH(fill, "fill", fill_impl, HPyFunc_VARARGS)
+static HPy fill_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     char *mode;
     int xsize, ysize;
-    PyObject *color;
+    HPy color, h_size;
     char buffer[4];
     Imaging im;
 
     xsize = ysize = 256;
-    color = NULL;
+    color = HPy_NULL;
 
-    if (!PyArg_ParseTuple(args, "s|(ii)O", &mode, &xsize, &ysize, &color)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "s|OO", &mode, &h_size, &color)) {
+        return HPy_NULL;
     }
+
+    xsize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 0)));
+    ysize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 1)));
 
     im = ImagingNewDirty(mode, xsize, ysize);
     if (!im) {
-        return NULL;
+        return HPy_NULL;
     }
 
     buffer[0] = buffer[1] = buffer[2] = buffer[3] = 0;
-    if (color) {
-        if (!getink(color, im, buffer)) {
+    if (!HPy_IsNull(color)) {
+        if (!getink(HPy_AsPyObject(ctx, color), im, buffer)) {
             ImagingDelete(im);
-            return NULL;
+            return HPy_NULL;
         }
     }
 
     (void)ImagingFill(im, buffer);
 
-    return PyImagingNew(im);
+    return HPyImagingNew(ctx, im);
 }
 
-static PyObject *
-_new(PyObject *self, PyObject *args) {
+HPyDef_METH(new, "new", new_impl, HPyFunc_VARARGS)
+static HPy new_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     char *mode;
     int xsize, ysize;
+    HPy h_size;
 
-    if (!PyArg_ParseTuple(args, "s(ii)", &mode, &xsize, &ysize)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "sO", &mode, &h_size)) {
+        return HPy_NULL;
     }
 
-    return PyImagingNew(ImagingNew(mode, xsize, ysize));
+    xsize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 0)));
+    ysize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 1)));
+
+    HPy hOut = HPyImagingNew(ctx, ImagingNew(mode, xsize, ysize));
+
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, hOut);
+    Imaging im = im_obj->image;
+
+    const char *mode1 = im->mode;
+    int xsize1 = im->xsize;
+    int ysize1 = im->ysize;
+
+    return hOut;
 }
 
 static PyObject *
@@ -667,7 +707,10 @@ static HPy linear_gradient_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_
     }
 
     const char *mode = PyUnicode_AsUTF8(HPy_AsPyObject(ctx, h_mode));
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingFillLinearGradient(mode)));
+
+    HPy hNew = HPyImagingNew(ctx, ImagingFillLinearGradient(mode));
+
+    return hNew;
 }
 
 HPyDef_METH(radial_gradient, "radial_gradient", radial_gradient_impl, HPyFunc_VARARGS)
@@ -691,10 +734,12 @@ static HPy alpha_composite_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_
         return HPy_NULL;
     }
 
-    ImagingObject *image1 = (ImagingObject *) HPy_AsPyObject(ctx, h_image1);
-    ImagingObject *image2 = (ImagingObject *) HPy_AsPyObject(ctx, h_image2);
+    ImagingObject *image1 = ImagingObject_AsStruct(ctx, h_image1);
+    ImagingObject *image2 = ImagingObject_AsStruct(ctx, h_image2);
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingAlphaComposite(image1->image, image2->image)));
+    HPy hNew = HPyImagingNew(ctx, ImagingAlphaComposite(image1->image, image2->image));
+
+    return hNew;
 }
 
 HPyDef_METH(blend, "blend", blend_impl, HPyFunc_VARARGS)
@@ -708,10 +753,12 @@ static HPy blend_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs){
         return HPy_NULL;
     }
 
-    ImagingObject *image1 = (ImagingObject *) HPy_AsPyObject(ctx, h_image1);
-    ImagingObject *image2 = (ImagingObject *) HPy_AsPyObject(ctx, h_image2);
+    ImagingObject *image1 = ImagingObject_AsStruct(ctx, h_image1);
+    ImagingObject *image2 = ImagingObject_AsStruct(ctx, h_image2);
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingBlend(image1->image, image2->image, (float)alpha)));
+    HPy hNew = HPyImagingNew(ctx, ImagingBlend(image1->image, image2->image, (float)alpha));
+
+    return hNew;
 }
 
 /* -------------------------------------------------------------------- */
@@ -981,9 +1028,9 @@ _convert_transparent(ImagingObject *self, PyObject *args) {
 HPyDef_METH(Imaging_copy, "copy", Imaging_copy_impl, HPyFunc_NOARGS)
 static HPy Imaging_copy_impl(HPyContext *ctx, HPy self) {
     ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
-    Imaging im = im_obj->image;
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingCopy(im)));
+    HPy hNew = HPyImagingNew(ctx, ImagingCopy(im_obj->image));//HPy_FromPyObject(ctx, PyImagingNew(ImagingCopy(im)));
+    return hNew;
 }
 
 
@@ -1004,7 +1051,11 @@ static HPy Imaging_crop_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t n
     ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
     Imaging im = im_obj->image;
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingCrop(im, x0, y0, x1, y1)));
+    HPy hNew = HPyImagingNew(ctx, ImagingCrop(im, x0, y0, x1, y1));
+
+    HPy_Close(ctx, h_tuple);
+
+    return hNew;
 }
 
 HPyDef_METH(Imaging_expand_image, "expand_image", Imaging_expand_image_impl, HPyFunc_VARARGS)
@@ -2214,14 +2265,14 @@ HPyDef_METH(Imaging_getbbox, "getbbox", Imaging_getbbox_impl, HPyFunc_NOARGS)
 static HPy Imaging_getbbox_impl(HPyContext *ctx, HPy self) {
     int bbox[4];
 
-    PyObject *py_self = HPy_AsPyObject(ctx, self);
-    Imaging im = PyImaging_AsImaging(py_self);
+    ImagingObject *im_self = ImagingObject_AsStruct(ctx, self);
+    Imaging im = im_self->image;
 
     if (!ImagingGetBBox(im, bbox)) {
-        return HPy_FromPyObject(ctx, Py_None);
+        return ctx->h_None;
     }
 
-    return HPy_NULL;//HPy_BuildValue(ctx, "iiii", bbox[0], bbox[1], bbox[2], bbox[3]);
+    return HPy_FromPyObject(ctx, Py_BuildValue("iiii", bbox[0], bbox[1], bbox[2], bbox[3]));
 }
 
 HPyDef_METH(Imaging_getcolors, "getcolors", Imaging_getcolors_impl, HPyFunc_VARARGS)
@@ -2378,10 +2429,6 @@ static HPy merge_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
 {
     HPy h_mode, h_band0, h_band1, h_band2, h_band3;
     char *mode;
-    ImagingObject *band0 = NULL;
-    ImagingObject *band1 = NULL;
-    ImagingObject *band2 = NULL;
-    ImagingObject *band3 = NULL;
     Imaging bands[4] = {NULL, NULL, NULL, NULL};
 
     if (!HPyArg_Parse(ctx, NULL, args, nargs, "sO|OOO", h_mode, h_band0, h_band1, h_band2, h_band3)) {
@@ -2401,30 +2448,35 @@ static HPy merge_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
         bands[3] = ((ImagingObject *) HPy_AsPyObject(ctx, h_band3))->image;
     }
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingMerge(mode, bands)));
+    mode = PyUnicode_AsUTF8(HPy_AsPyObject(ctx, h_mode));
+
+    HPy hNew = HPyImagingNew(ctx, ImagingMerge(mode, bands));
+
+    return hNew;
 }
 
 HPyDef_METH(Imaging_split, "split", Imaging_split_impl, HPyFunc_NOARGS)
 static HPy Imaging_split_impl(HPyContext *ctx, HPy self) {
     int fails = 0;
     Py_ssize_t i;
-    HPy h_list;
-    PyObject *imaging_object;
+    HPy h_list, h_New;
     Imaging bands[4] = {NULL, NULL, NULL, NULL};
 
-    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+    ImagingObject *im_self = ImagingObject_AsStruct(ctx, self);
+    Imaging im = im_self->image;
 
-    if (!ImagingSplit(im_self->image, bands)) {
+    if (!ImagingSplit(im, bands)) {
         return HPy_NULL;
     }
 
-    h_list = HPy_FromPyObject(ctx, PyTuple_New(im_self->image->bands));
-    for (i = 0; i < im_self->image->bands; i++) {
-        imaging_object = PyImagingNew(bands[i]);
-        if (!imaging_object) {
+    h_list = HPy_FromPyObject(ctx, PyTuple_New(im->bands));
+    for (i = 0; i < im->bands; i++) {
+        h_New = HPyImagingNew(ctx, bands[i]);
+        if (HPy_IsNull(h_New)) {
             fails += 1;
         }
-        PyTuple_SET_ITEM(HPy_AsPyObject(ctx, h_list), i, imaging_object);
+        //HPy_SetItem(ctx, h_list, HPyLong_FromLong(ctx, i), h_New);
+        PyTuple_SET_ITEM(HPy_AsPyObject(ctx, h_list), i, HPy_AsPyObject(ctx, h_New));
     }
     if (fails) {
         HPy_Close(ctx, h_list);
@@ -3434,18 +3486,17 @@ static HPy effect_mandelbrot_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssiz
         return HPy_NULL;
     }
 
-    PyObject *py_size = HPy_AsPyObject(ctx, h_size);
-    PyObject *py_extent = HPy_AsPyObject(ctx, h_extent);
+    xsize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 0)));
+    ysize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 1)));
 
-    xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
-    ysize = PyLong_AsLong(PyTuple_GetItem(py_size,1));
+    extent[0] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_extent, HPyLong_FromLong(ctx, 0)));
+    extent[1] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_extent, HPyLong_FromLong(ctx, 1)));
+    extent[2] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_extent, HPyLong_FromLong(ctx, 2)));
+    extent[3] = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_extent, HPyLong_FromLong(ctx, 3)));
 
-    extent[0] = PyLong_AsLong(PyTuple_GetItem(py_extent,0));
-    extent[1] = PyLong_AsLong(PyTuple_GetItem(py_extent,1));
-    extent[2] = PyLong_AsLong(PyTuple_GetItem(py_extent,2));
-    extent[3] = PyLong_AsLong(PyTuple_GetItem(py_extent,3));
+    HPy hNew = HPyImagingNew(ctx, ImagingEffectMandelbrot(xsize, ysize, extent, quality));
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingEffectMandelbrot(xsize, ysize, extent, quality)));
+    return hNew;
 }
 
 HPyDef_METH(effect_noise, "effect_noise", effect_noise_impl, HPyFunc_VARARGS)
@@ -3458,25 +3509,27 @@ static HPy effect_noise_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t n
         return HPy_NULL;
     }
 
-    py_size = HPy_AsPyObject(ctx, h_size);
+    xsize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 0)));
+    ysize = HPyLong_AsLong(ctx, HPy_GetItem(ctx, h_size, HPyLong_FromLong(ctx, 1)));
 
-    xsize = PyLong_AsLong(PyTuple_GetItem(py_size,0));
-    ysize = PyLong_AsLong(PyTuple_GetItem(py_size,1));
+    HPy hNew = HPyImagingNew(ctx, ImagingEffectNoise(xsize, ysize, sigma));
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingEffectNoise(xsize, ysize, sigma)));
+    return hNew;
 }
 
 HPyDef_METH(Imaging_effect_spread, "effect_spread", Imaging_effect_spread_impl, HPyFunc_VARARGS)
 static HPy Imaging_effect_spread_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     int dist;
-    PyObject *py_self = HPy_AsPyObject(ctx, self);
-    Imaging im = PyImaging_AsImaging(py_self);
+    ImagingObject *im_obj = ImagingObject_AsStruct(ctx, self);
+    Imaging im = im_obj->image;
 
     if (!HPyArg_Parse(ctx, NULL, args, nargs, "i", &dist)) {
         return HPy_NULL;
     }
 
-    return HPy_FromPyObject(ctx, PyImagingNew(ImagingEffectSpread(im, dist)));
+    HPy hNew = HPyImagingNew(ctx, ImagingEffectSpread(im, dist));
+
+    return hNew;
 }
 
 #endif
@@ -3622,12 +3675,15 @@ static struct PyMethodDef methods[] = {
 
 HPyDef_GET(Imaging_getattr_mode, "mode", Imaging_getattr_mode_impl)
 static HPy Imaging_getattr_mode_impl(HPyContext *ctx, HPy self, void *closure) {
-    return HPyUnicode_FromString(ctx, ((ImagingObject *) HPy_AsPyObject(ctx, self))->image->mode);
+    ImagingObject *im_self = ImagingObject_AsStruct(ctx, self);
+    Imaging im = im_self->image;
+    const char  *mode = im->mode;
+    return HPyUnicode_FromString(ctx, mode);
 }
 
 HPyDef_GET(Imaging_getattr_size, "size", Imaging_getattr_size_impl)
 static HPy Imaging_getattr_size_impl(HPyContext *ctx, HPy self, void *closure) {
-    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+    ImagingObject *im_self = ImagingObject_AsStruct(ctx, self);
     return HPy_FromPyObject(ctx, Py_BuildValue("ii", im_self->image->xsize, im_self->image->ysize));
 }
 
@@ -3648,15 +3704,15 @@ static HPy Imaging_getattr_ptr_impl(HPyContext *ctx, HPy self, void *closure) {
 
 HPyDef_GET(Imaging_getattr_unsafe_ptrs, "unsafe_ptrs", Imaging_getattr_unsafe_ptrs_impl)
 static HPy Imaging_getattr_unsafe_ptrs_impl(HPyContext *ctx, HPy self, void *closure) {
-    ImagingObject *im_self = (ImagingObject *) HPy_AsPyObject(ctx, self);
+    Imaging im = ((Imaging) HPy_AsPyObject(ctx, self));
     return HPy_FromPyObject(ctx, Py_BuildValue(
         "(sn)(sn)(sn)",
         "image8",
-        im_self->image->image8,
+        im->image8,
         "image32",
-        im_self->image->image32,
+        im->image32,
         "image",
-        im_self->image->image));
+        im->image8));
 };
 
 /* basic sequence semantics */
@@ -4109,10 +4165,6 @@ PyImaging_MapBuffer(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
 
-    /* Object factories */
-    {"fill", (PyCFunction)_fill, METH_VARARGS},
-    {"new", (PyCFunction)_new, METH_VARARGS},
-
     /* Functions */
     {"convert", (PyCFunction)_convert2, METH_VARARGS},
 
@@ -4329,6 +4381,8 @@ setup_module(HPyContext *ctx, HPy h_module) {
 
 static HPyDef *module_defines[] = {
     /* Object factories */
+    &fill,
+    &new,
     &alpha_composite,
     &blend,
     &merge,
@@ -4348,9 +4402,9 @@ HPy_MODINIT(_imaging)
 static HPy init__imaging_impl(HPyContext *ctx) {
 
     static HPyModuleDef module_def = {
-        .m_name = "_imaging", /* m_name */
-        .m_doc = NULL,       /* m_doc */
-        .m_size = -1,         /* m_size */
+        .name = "_imaging", /* m_name */
+        .doc = NULL,       /* m_doc */
+        .size = -1,         /* m_size */
         .legacy_methods = functions,  /* m_methods */
         .defines = module_defines,
     };
