@@ -2136,17 +2136,17 @@ _transform2(ImagingObject *self, PyObject *args) {
     return Py_None;
 }
 
-static PyObject *
-_transpose(ImagingObject *self, PyObject *args) {
+HPyDef_METH(Imaging_transpose, "transpose", Imaging_transpose_impl, HPyFunc_VARARGS)
+static HPy Imaging_transpose_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
     Imaging imIn;
     Imaging imOut;
 
     int op;
-    if (!PyArg_ParseTuple(args, "i", &op)) {
-        return NULL;
+    if (!HPyArg_Parse(ctx, NULL, args, nargs, "i", &op)) {
+        return HPy_NULL;
     }
 
-    imIn = self->image;
+    imIn = ImagingObject_AsStruct(ctx, self)->image;
 
     switch (op) {
         case 0: /* flip left right */
@@ -2161,8 +2161,8 @@ _transpose(ImagingObject *self, PyObject *args) {
             imOut = ImagingNewDirty(imIn->mode, imIn->ysize, imIn->xsize);
             break;
         default:
-            PyErr_SetString(PyExc_ValueError, "No such transpose operation");
-            return NULL;
+            HPyErr_SetString(ctx, ctx->h_ValueError, "No such transpose operation");
+            return HPy_NULL;
     }
 
     if (imOut) {
@@ -2191,7 +2191,7 @@ _transpose(ImagingObject *self, PyObject *args) {
         }
     }
 
-    return PyImagingNew(imOut);
+    return HPyImagingNew(ctx, imOut);
 }
 
 #ifdef WITH_UNSHARPMASK
@@ -3609,7 +3609,6 @@ static struct PyMethodDef methods[] = {
 #ifdef WITH_RANKFILTER
     {"rankfilter", (PyCFunction)_rankfilter, METH_VARARGS},
 #endif
-    {"transpose", (PyCFunction)_transpose, METH_VARARGS},
     {"transform2", (PyCFunction)_transform2, METH_VARARGS},
 
     {"isblock", (PyCFunction)_isblock, METH_NOARGS},
@@ -3776,6 +3775,7 @@ static HPyDef *Imaging_type_defines[]={
     &Imaging_getbbox,
     &Imaging_getcolors,
     &Imaging_split,
+    &Imaging_transpose,
 
     &Imaging_getband,
     &Imaging_fillband,
@@ -4405,9 +4405,9 @@ HPy_MODINIT(_imaging)
 static HPy init__imaging_impl(HPyContext *ctx) {
 
     static HPyModuleDef module_def = {
-        .m_name = "_imaging", /* m_name */
-        .m_doc = NULL,       /* m_doc */
-        .m_size = -1,         /* m_size */
+        .name = "_imaging", /* m_name */
+        .doc = NULL,       /* m_doc */
+        .size = -1,         /* m_size */
         .legacy_methods = functions,  /* m_methods */
         .defines = module_defines,
     };
