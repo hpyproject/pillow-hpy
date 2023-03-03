@@ -54,6 +54,7 @@ if sys.platform == "win32" and sys.version_info >= (3, 12):
     )
 
 
+HPY_ABI = 'cpython' if sys.implementation.name == 'cpython' else 'universal'
 _IMAGING = ("decode", "encode", "map", "display", "outline", "path")
 
 _LIB_IMAGING = (
@@ -985,24 +986,28 @@ for src_file in _IMAGING:
 for src_file in _LIB_IMAGING:
     files.append(os.path.join("src/libImaging", src_file + ".c"))
 ext_modules = [
-    Extension("PIL._imaging", files),
+    #Extension("PIL._imaging", files),
     Extension("PIL._imagingft", ["src/_imagingft.c"]),
     Extension("PIL._imagingcms", ["src/_imagingcms.c"]),
     Extension("PIL._webp", ["src/_webp.c"]),
     Extension("PIL._imagingtk", ["src/_imagingtk.c", "src/Tk/tkImaging.c"]),
     Extension("PIL._imagingmath", ["src/_imagingmath.c"]),
-    Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]),
+    #Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]),
 ]
 
 try:
     setup(
         version=PILLOW_VERSION,
         cmdclass={"build_ext": pil_build_ext},
+        hpy_ext_modules=[Extension("PIL._imaging", files),
+                         Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]),],
         ext_modules=ext_modules,
-        include_package_data=True,
+        #include_package_data=True,
         packages=["PIL"],
         package_dir={"": "src"},
         zip_safe=not (debug_build() or PLATFORM_MINGW),
+        setup_requires=['hpy'],
+        hpy_abi=HPY_ABI,
     )
 except RequiredDependencyException as err:
     msg = f"""
