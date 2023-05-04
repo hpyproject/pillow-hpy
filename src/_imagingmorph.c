@@ -28,8 +28,8 @@
    Returns number of changed pixels.
 */
 
-HPyDef_METH(apply, "apply", apply_impl, HPyFunc_VARARGS)
-static HPy apply_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+HPyDef_METH(apply, "apply", HPyFunc_VARARGS)
+static HPy apply_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs) {
     const char *lut;
     HPy h_lut;
     HPy_ssize_t lut_len, i0, i1;
@@ -114,7 +114,7 @@ static HPy apply_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
             num_changed_pixels += ((b4 & 1) != (outrow[col_idx] & 1));
         }
     }
-    return HPy_NULL;//HPy_BuildValue(ctx, "i", num_changed_pixels);
+    return HPy_BuildValue(ctx, "i", num_changed_pixels);
 }
 
 /* Match a morphologic LUT to a binary image and return a list
@@ -128,8 +128,8 @@ static HPy apply_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
    Returns list of matching pixels.
 */
 
-HPyDef_METH(match, "match", match_impl, HPyFunc_VARARGS)
-static HPy match_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+HPyDef_METH(match, "match", HPyFunc_VARARGS)
+static HPy match_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs) {
     const char *lut;
     HPy h_lut;
     HPy_ssize_t lut_len, i0;
@@ -208,8 +208,8 @@ static HPy match_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
    This is faster than match as only 1x1 lookup is made.
 */
 
-HPyDef_METH(get_on_pixels, "get_on_pixels", get_on_pixels_impl, HPyFunc_VARARGS)
-static HPy get_on_pixels_impl(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs) {
+HPyDef_METH(get_on_pixels, "get_on_pixels", HPyFunc_VARARGS)
+static HPy get_on_pixels_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs) {
     HPy_ssize_t i0;
     Imaging img;
     UINT8 **rows;
@@ -244,23 +244,13 @@ static HPyDef *module_defines[] = {
     &apply,
     &match,
     &get_on_pixels,
+    NULL
 };
 
-HPy_MODINIT(_imagingmorph)
-static HPy init__imagingmorph_impl(HPyContext *ctx) {
-    
-    static HPyModuleDef module_def = {
-        .name = "_imagingmorph", /* m_name */
-        .doc = "A module for doing image morphology",       /* m_doc */
-        .size = -1,         /* m_size */
-        .defines = module_defines,  /* m_methods */
-    };
+static HPyModuleDef module_def = {
+    .doc = "A module for doing image morphology",
+    .size = 0,
+    .defines = module_defines,
+};
 
-    HPy m;
-    m = HPyModule_Create(ctx, &module_def);
-    if (HPy_IsNull(m)) {
-        return HPy_NULL;
-    }
-
-    return m;
-}
+HPy_MODINIT(_imagingmorph, module_def)
