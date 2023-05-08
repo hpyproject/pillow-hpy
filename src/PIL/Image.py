@@ -1173,7 +1173,6 @@ class Image:
             raise ValueError("Coordinate 'lower' is less than 'upper'")
 
         self.load()
-        print(box)
         return self._new(self._crop(self.im, box))
 
     def _crop(self, im, box):
