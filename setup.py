@@ -1003,7 +1003,7 @@ try:
         packages=["PIL"],
         package_dir={"": "src"},
         zip_safe=not (debug_build() or PLATFORM_MINGW),
-        setup_requires=['hpy'],
+        setup_requires=['hpy>=0.9.0rc1'],
         hpy_abi=HPY_ABI,
     )
 except RequiredDependencyException as err:
